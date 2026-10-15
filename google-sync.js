@@ -45,7 +45,7 @@
     client.requestAccessToken({prompt:'select_account'});
   };
   $('settings-connect').onclick=()=>{if($('cloud-client').value.trim()!==config.client||($('cloud-sheet').value.trim().match(/\/spreadsheets\/d\/([\w-]+)/)?.[1]||$('cloud-sheet').value.trim())!==config.sheet){status('Save your edited settings before connecting.');return} $('cloud-connect').click()};
-  $('settings-test').onclick=()=>run(async()=>{status('Checking spreadsheet access…');await api(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[]})});const raw=await readCloud();status(raw===null?'Connection works · Spreadsheet is writable and empty. Continue to the dashboard, then Save to Google.':'Connection works · Read and write access confirmed. Click Load data & open dashboard.');});
+  $('settings-test').onclick=()=>run(async()=>{status('Checking spreadsheet access…');const marker='__pocket_write_access_test__';await api(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{findReplace:{find:marker,replacement:marker,allSheets:true,matchCase:true,matchEntireCell:true}}]})});const raw=await readCloud();status(raw===null?'Connection works · Spreadsheet is writable and empty. Continue to the dashboard, then Save to Google.':'Connection works · Read and write access confirmed. Click Load data & open dashboard.');});
   $('settings-load').onclick=async()=>{await $('cloud-load').onclick();if($('cloud-status').textContent.startsWith('Loaded from Google'))dialog.close()};
   $('settings-local').onclick=()=>dialog.close();
   $('cloud-disconnect').onclick=disconnect;
