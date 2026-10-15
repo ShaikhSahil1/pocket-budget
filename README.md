@@ -25,3 +25,5 @@ https://pocketmonthlybudget.netlify.app
 ```
 
 After changing Netlify environment variables, trigger a new production deploy.
+
+When connected, changes are saved to browser storage immediately and automatically uploaded to Google Sheets after a short debounce. Pending offline changes remain marked locally and are uploaded after the Google session is restored, unless the cloud copy changed on another device; that conflict requires an explicit Load or Save choice.
