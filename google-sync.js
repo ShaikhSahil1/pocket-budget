@@ -17,7 +17,7 @@
   function hashRaw(raw){const value=String(raw??'');let a=2166136261,b=3339675911;for(let i=0;i<value.length;i++){const c=value.charCodeAt(i);a=Math.imul(a^c,16777619);b=Math.imul(b^c,2246822519)}return (a>>>0).toString(16)+(b>>>0).toString(16)+'-'+value.length}
   function syncState(){try{return JSON.parse(localStorage.getItem(syncStateKey))||{}}catch{return {}}}
   function rememberCloud(raw,clearDirty=true){baseline=raw;try{localStorage.setItem(syncStateKey,JSON.stringify({sheet:config.sheet,hash:hashRaw(raw)}))}catch{}if(clearDirty)setDirty(false)}
-  function controls(){const connected=!!token&&Date.now()<expires; ['cloud-load','cloud-save','cloud-disconnect','settings-test','settings-load'].forEach(id=>$(id).disabled=busy||!connected);$('cloud-connect').disabled=busy;$('settings-connect').disabled=busy;$('cloud-close').disabled=busy;$('settings-local').disabled=busy;$('cloud-settings').disabled=busy}
+  function controls(){const connected=!!token&&Date.now()<expires; ['cloud-load','cloud-save','cloud-disconnect','settings-test','settings-load'].forEach(id=>$(id).disabled=busy||!connected);$('cloud-connect').disabled=busy||connected;$('settings-connect').disabled=busy||connected;$('cloud-close').disabled=busy;$('settings-local').disabled=busy;$('cloud-settings').disabled=busy}
   function disconnect(message='Disconnected · Data remains saved on this device.'){token='';expires=0;baseline=undefined;clearTimeout(autoSaveTimer);controls();status(message);}
   async function serverAuth(action) {
     const res=await fetch('/api/google-auth',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'XmlHttpRequest'},body:JSON.stringify({action})});
