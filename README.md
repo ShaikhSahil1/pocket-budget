@@ -49,3 +49,7 @@ Choose a month and use **Clear month…**. Choose expenses plus starting balance
 ## Automatic carry-forward
 
 Positive available money and unused casual, medical and comp-off days carry into every following month, including skipped months and year boundaries. New monthly funds and the recurring casual allowance are added to the carried amount. Medical and comp-off credits apply only in months where you manually enter them, while their unused balances carry forward. Negative balances are displayed in their original month but do not carry forward. Editing, deleting or restoring past records recalculates future totals; no carry entries are duplicated in storage. Enter only new monthly funds in Set monthly balance, excluding the carry-forward shown on the dashboard. CSV exports include new funds, carry-forward and the combined starting balance.
+
+## User profile
+
+Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. Signed-out visitors also have a main-page sign-in button.
