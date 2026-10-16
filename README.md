@@ -65,3 +65,5 @@ Mini tools follows Leaves in navigation. Its currency converter fetches the keyl
 ## Travel planner notes
 
 Mini tools includes named travel plans, free-form notes, and separate packing and task checklists. Add, edit, delete and complete checklist items; progress is shown per checklist. Plans use the same account-local data, Google Sheet auto-sync, full backup and restore as budgets and leaves. Old backups without travelPlans remain valid. Clearing a budget month does not delete travel plans. Each account has separate plans.
+
+Mini tools opens with two themed cards: Currency converter and Travel planner. Select a card to open only that tool, and use All mini tools to return. Currency rates load only after opening the converter. Returning from another navigation tab or changing accounts resets the tool selection to the cards.

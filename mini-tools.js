@@ -46,6 +46,7 @@
   $('convert-from').onchange = $('convert-to').onchange = calculate;
   $('convert-swap').onclick = () => { const from = $('convert-from').value; $('convert-from').value = $('convert-to').value; $('convert-to').value = from; calculate(); };
   $('rates-refresh').onclick = () => refresh(true);
+  view.addEventListener('pocket-open-converter', () => { if (pocketStorageKey && !attempted) refresh(); });
   const originalRender = render;
   render = function () {
     originalRender(); const active = tab === 'Mini tools'; view.hidden = !active;
@@ -54,7 +55,6 @@
     document.querySelectorAll('section > .stats, section > .middle, section > .transactions').forEach(element => element.hidden = true);
     $('leaves-view').hidden = true; $('title').textContent = 'Your everyday mini tools.';
     $('subtitle').textContent = 'Currency conversion, travel notes, packing and task checklists.';
-    if (pocketStorageKey && !attempted) refresh();
   };
   render();
 })();
