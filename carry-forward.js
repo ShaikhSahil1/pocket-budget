@@ -23,7 +23,11 @@ function pocketMonthTotals(source, selectedMonth) {
   let carried = 0, leaveCarried = zero(), allowance = zero(), result;
   for (let i = index(months[0] || selectedMonth); i <= index(selectedMonth); i++) {
     const month = monthName(i);
-    if (allowances[month]) allowance = { ...zero(), ...allowances[month] };
+    allowance = {
+      casual: allowances[month]?.casual ?? allowance.casual,
+      medical: allowances[month]?.medical ?? 0,
+      compoff: allowances[month]?.compoff ?? 0,
+    };
     const base = source.balances[month] || 0;
     const starting = moneyRound(base + carried);
     const available = moneyRound(starting - (expenses[month] || 0));

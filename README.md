@@ -4,7 +4,7 @@ A browser-based monthly budget and leave tracker with separate Google account wo
 
 ## Leave tracking
 
-Open **Leaves** and choose a month, then **Set monthly allowances** to set casual, medical, and comp-off days (including half days). Allowances repeat from that month until the next configured change. Positive unused days carry forward monthly for each leave type. Add a leave for each date taken, choose its type (including comp-off), and enter details or a reason; records can be edited or deleted, and taking more than the allowance displays a negative balance.
+Open **Leaves** and choose a month, then **Set monthly allowances** to set casual, medical, and comp-off days (including half days). Casual leave repeats from that month until the next configured change. Medical and comp-off credits apply once to the selected month; enter them manually when received. Positive unused days carry forward monthly for each leave type. Add a leave for each date taken, choose its type (including comp-off), and enter details or a reason; records can be edited or deleted, and taking more than the allowance displays a negative balance.
 
 Leaves save immediately with budget data in browser storage and use the same optional Google Sheets auto-sync and full JSON backup/restore. Older backups without leaves still load; restoring one replaces all local data, including leaves. Monthly budget CSV exports contain expenses only.
 
@@ -48,4 +48,4 @@ Choose a month and use **Clear month…**. Choose expenses plus starting balance
 
 ## Automatic carry-forward
 
-Positive available money and unused casual, medical and comp-off days carry into every following month, including skipped months and year boundaries. New monthly funds and recurring leave allowances are added to the carried amount. Negative balances are displayed in their original month but do not carry forward. Editing, deleting or restoring past records recalculates future totals; no carry entries are duplicated in storage. Enter only new monthly funds in Set monthly balance, excluding the carry-forward shown on the dashboard. CSV exports include new funds, carry-forward and the combined starting balance.
+Positive available money and unused casual, medical and comp-off days carry into every following month, including skipped months and year boundaries. New monthly funds and the recurring casual allowance are added to the carried amount. Medical and comp-off credits apply only in months where you manually enter them, while their unused balances carry forward. Negative balances are displayed in their original month but do not carry forward. Editing, deleting or restoring past records recalculates future totals; no carry entries are duplicated in storage. Enter only new monthly funds in Set monthly balance, excluding the carry-forward shown on the dashboard. CSV exports include new funds, carry-forward and the combined starting balance.
