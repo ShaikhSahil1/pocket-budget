@@ -57,3 +57,7 @@ Click the user profile in the sidebar (below navigation on mobile) to open Googl
 ## Currency preferences
 
 New accounts default to INR. The currency menu lists currencies supported by the browser’s Intl runtime, with an ISO currency fallback for older browsers. A currency change asks whether to save permanently to the signed-in account, use temporarily until reload, or cancel. Temporary choices are not included in stored data or cloud backups. Currency changes format amounts without exchange-rate conversion.
+
+## Mini tools
+
+Mini tools follows Leaves in navigation. Its currency converter fetches the keyless ExchangeRate-API open-access USD rate table only when opened, calculates cross-rates as you type, and supports currency swapping and manual refresh. Rates update daily at the provider; the UI shows their timestamp and labels stale/cached data. No budget amounts, identity or saved currency are sent to the provider. Rates are cached in memory for an hour, with a one-minute refresh cooldown; amounts and rate preferences do not modify the budget. Attribution is displayed as required by https://www.exchangerate-api.com/docs/free.
