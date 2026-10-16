@@ -61,3 +61,7 @@ New accounts default to INR. The currency menu lists currencies supported by the
 ## Mini tools
 
 Mini tools follows Leaves in navigation. Its currency converter fetches the keyless ExchangeRate-API open-access USD rate table only when opened, calculates cross-rates as you type, and supports currency swapping and manual refresh. Rates update daily at the provider; the UI shows their timestamp and labels stale/cached data. No budget amounts, identity or saved currency are sent to the provider. Rates are cached in memory for an hour, with a one-minute refresh cooldown; amounts and rate preferences do not modify the budget. Attribution is displayed as required by https://www.exchangerate-api.com/docs/free.
+
+## Travel planner notes
+
+Mini tools includes named travel plans, free-form notes, and separate packing and task checklists. Add, edit, delete and complete checklist items; progress is shown per checklist. Plans use the same account-local data, Google Sheet auto-sync, full backup and restore as budgets and leaves. Old backups without travelPlans remain valid. Clearing a budget month does not delete travel plans. Each account has separate plans.
