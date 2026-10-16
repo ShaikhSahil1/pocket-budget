@@ -41,3 +41,7 @@ https://pocketmonthlybudget.netlify.app
 After changing Netlify environment variables, trigger a new production deploy.
 
 When connected, changes are saved to browser storage immediately and automatically uploaded to Google Sheets after a short debounce. Pending offline changes remain marked locally and are uploaded after the Google session is restored, unless the cloud copy changed on another device; that conflict requires an explicit Load or Save choice.
+
+## Clear a month
+
+Choose a month and use **Clear month…**. Choose expenses plus starting balance, leave records, or both. The dialog shows the month and record counts, offers a full backup download, and requires typing the exact YYYY-MM before deletion. Other months and recurring leave allowances are preserved. Account, month, and data changes invalidate an open confirmation. Successful deletion uses the existing account-local save and Google sync; failed local saves restore the previous in-memory data.
