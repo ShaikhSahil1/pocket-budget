@@ -6,23 +6,23 @@ function validateLeaves(leaves) {
   const validDate = s => typeof s === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && localDate(new Date(s + 'T12:00:00')) === s;
   if (!leaves || !leaves.allowances || typeof leaves.allowances !== 'object' || Array.isArray(leaves.allowances) || !Array.isArray(leaves.entries)) throw Error('Invalid leave backup.');
   for (const [month, allowance] of Object.entries(leaves.allowances)) {
-    if (!validMonth(month) || !allowance || !validDays(allowance.casual) || !validDays(allowance.medical)) throw Error('Invalid leave allowance.');
+    if (!validMonth(month) || !allowance || !validDays(allowance.casual) || !validDays(allowance.medical) || (allowance.compoff !== undefined && !validDays(allowance.compoff))) throw Error('Invalid leave allowance.');
   }
   const ids = new Set();
   for (const entry of leaves.entries) {
-    if (!entry || typeof entry.id !== 'string' || ids.has(entry.id) || !['casual', 'medical'].includes(entry.type) || !validDate(entry.date) || !validDays(entry.days) || entry.days <= 0 || entry.days > 1 || typeof entry.notes !== 'string') throw Error('Invalid leave record.');
+    if (!entry || typeof entry.id !== 'string' || ids.has(entry.id) || !['casual', 'medical', 'compoff'].includes(entry.type) || !validDate(entry.date) || !validDays(entry.days) || entry.days <= 0 || entry.days > 1 || typeof entry.notes !== 'string') throw Error('Invalid leave record.');
     ids.add(entry.id);
   }
 }
 
 (() => {
-  const types = ['casual', 'medical'];
-  const label = type => type === 'casual' ? 'Casual' : 'Medical';
+  const types = ['casual', 'medical', 'compoff'];
+  const label = type => ({ casual: 'Casual', medical: 'Medical', compoff: 'Comp-off' })[type];
   const store = () => data.leaves || { allowances: {}, entries: [] };
   const editableStore = () => data.leaves ||= { allowances: {}, entries: [] };
   const allowanceFor = month => {
     const effective = Object.keys(store().allowances).filter(m => m <= month).sort().pop();
-    return effective ? store().allowances[effective] : { casual: 0, medical: 0 };
+    return { casual: 0, medical: 0, compoff: 0, ...(effective ? store().allowances[effective] : {}) };
   };
   const navButton = document.createElement('button');
   navButton.dataset.tab = 'Leaves';
@@ -34,10 +34,10 @@ function validateLeaves(leaves) {
   view.innerHTML = `<div class="leave-toolbar"><div><h3>Monthly leave balance</h3><p id="leave-policy"></p></div><button id="leave-settings">Set monthly allowances</button></div><div class="stats leave-stats" id="leave-stats"></div><article class="panel transactions"><div class="panel-heading"><div><h3>Leaves taken</h3><span>Record each date separately, including half days.</span></div></div><div class="table-wrap"><table><thead><tr><th>DATE</th><th>TYPE</th><th>DAYS</th><th>NOTES</th><th></th></tr></thead><tbody id="leave-rows"></tbody></table></div><p id="leave-empty" class="leave-empty">No leaves recorded this month. Use Add leave to record time off.</p></article>`;
   document.querySelector('.stats').before(view);
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form id="leave-form"><div class="modal-heading"><h2 id="leave-modal-title">Add leave</h2><button type="button" id="leave-close" aria-label="Close">×</button></div><input type="hidden" id="leave-id"><label>Date<input id="leave-date" type="date" required></label><div class="form-grid"><label>Leave type<select id="leave-type"><option value="casual">Casual leave</option><option value="medical">Medical leave</option></select></label><label>Days<select id="leave-days"><option value="1">1 day</option><option value="0.5">Half day</option></select></label></div><label>Notes<input id="leave-notes" maxlength="200" placeholder="Optional reason or details"></label><p>Each record deducts from the selected month. A negative balance shows leave taken beyond your allowance.</p><div class="modal-actions"><button type="button" id="leave-cancel">Cancel</button><button class="primary">Save leave</button></div></form>`;
+  dialog.innerHTML = `<form id="leave-form"><div class="modal-heading"><h2 id="leave-modal-title">Add leave</h2><button type="button" id="leave-close" aria-label="Close">×</button></div><input type="hidden" id="leave-id"><label>Date<input id="leave-date" type="date" required></label><div class="form-grid"><label>Leave type<select id="leave-type"><option value="casual">Casual leave</option><option value="medical">Medical leave</option><option value="compoff">Comp-off leave</option></select></label><label>Days<select id="leave-days"><option value="1">1 day</option><option value="0.5">Half day</option></select></label></div><label>Details / reason<input id="leave-notes" maxlength="200" placeholder="Optional reason or details"></label><p>Each record deducts from the selected month. A negative balance shows leave taken beyond your allowance.</p><div class="modal-actions"><button type="button" id="leave-cancel">Cancel</button><button class="primary">Save leave</button></div></form>`;
   document.body.append(dialog);
   const settings = document.createElement('dialog');
-  settings.innerHTML = `<form id="leave-settings-form"><div class="modal-heading"><h2>Monthly leave allowances</h2><button type="button" id="leave-settings-close" aria-label="Close">×</button></div><p id="leave-effective"></p><div class="form-grid"><label>Casual days per month<input id="leave-casual" type="number" min="0" step="0.5" required></label><label>Medical days per month<input id="leave-medical" type="number" min="0" step="0.5" required></label></div><p>Repeats automatically from this month until your next allowance change. Unused days reset each month; they do not carry over.</p><div class="modal-actions"><button type="button" id="leave-settings-cancel">Cancel</button><button class="primary">Save allowances</button></div></form>`;
+  settings.innerHTML = `<form id="leave-settings-form"><div class="modal-heading"><h2>Monthly leave allowances</h2><button type="button" id="leave-settings-close" aria-label="Close">×</button></div><p id="leave-effective"></p><div class="form-grid"><label>Casual days per month<input id="leave-casual" type="number" min="0" step="0.5" required></label><label>Medical days per month<input id="leave-medical" type="number" min="0" step="0.5" required></label><label>Comp-off days per month<input id="leave-compoff" type="number" min="0" step="0.5" required></label></div><p>Repeats automatically from this month until your next allowance change. Unused days reset each month; they do not carry over.</p><div class="modal-actions"><button type="button" id="leave-settings-cancel">Cancel</button><button class="primary">Save allowances</button></div></form>`;
   document.body.append(settings);
   function openLeave(entry) {
     $('leave-form').reset();

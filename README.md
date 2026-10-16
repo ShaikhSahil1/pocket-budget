@@ -4,7 +4,7 @@ A browser-based monthly budget tracker with optional Google Sheets backup.
 
 ## Leave tracking
 
-Open **Leaves** and choose a month, then **Set monthly allowances** to set casual and medical days (including half days). Allowances repeat from that month until the next configured change. Unused days reset monthly and do not carry over. Add a leave for each date taken; records can be edited or deleted, and taking more than the allowance displays a negative balance.
+Open **Leaves** and choose a month, then **Set monthly allowances** to set casual, medical, and comp-off days (including half days). Allowances repeat from that month until the next configured change. Unused days reset monthly and do not carry over. Add a leave for each date taken, choose its type (including comp-off), and enter details or a reason; records can be edited or deleted, and taking more than the allowance displays a negative balance.
 
 Leaves save immediately with budget data in browser storage and use the same optional Google Sheets auto-sync and full JSON backup/restore. Older backups without leaves still load; restoring one replaces all local data, including leaves. Monthly budget CSV exports contain expenses only.
 
