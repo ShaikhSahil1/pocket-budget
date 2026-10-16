@@ -45,6 +45,7 @@ async function workspace(id, storage = new Map(), cloud = null) {
   vm.createContext(context);
   vm.runInContext(fs.readFileSync('account-storage.js', 'utf8'), context);
   vm.runInContext('function persist(){if(!pocketStorageKey)return false;localStorage.setItem(pocketStorageKey,JSON.stringify(data));return true}', context);
+  vm.runInContext(fs.readFileSync('currency-support.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('backup-validation.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('google-account-sync.js', 'utf8'), context);
   for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve));
