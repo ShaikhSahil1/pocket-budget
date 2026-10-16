@@ -53,3 +53,7 @@ Positive available money and unused casual, medical and comp-off days carry into
 ## User profile
 
 Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. Signed-out visitors also have a main-page sign-in button.
+
+## Currency preferences
+
+New accounts default to INR. The currency menu lists currencies supported by the browser’s Intl runtime, with an ISO currency fallback for older browsers. A currency change asks whether to save permanently to the signed-in account, use temporarily until reload, or cancel. Temporary choices are not included in stored data or cloud backups. Currency changes format amounts without exchange-rate conversion.
