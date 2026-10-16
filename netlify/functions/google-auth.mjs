@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 
 const sessionCookie = '__Host-pocket_google_session';
 const stateCookie = '__Host-pocket_google_state';
-const sheetsScope = 'https://www.googleapis.com/auth/spreadsheets';
+const sheetsScope = 'openid email https://www.googleapis.com/auth/drive.file';
 
 function settings() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -91,7 +91,7 @@ export default async (request) => {
         scope: sheetsScope,
         access_type: 'offline',
         include_granted_scopes: 'true',
-        prompt: 'consent',
+        prompt: 'select_account consent',
         state,
       });
       return new Response(null, {
@@ -134,7 +134,18 @@ export default async (request) => {
           refresh_token: refreshToken,
           grant_type: 'refresh_token',
         });
-        return json({ access_token: tokens.access_token, expires_in: tokens.expires_in });
+        if (!String(tokens.scope || '').split(' ').includes('https://www.googleapis.com/auth/drive.file')) {
+          throw new Error('Please sign in again to allow your private Pocket spreadsheet.');
+        }
+        const identityResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        const identity = await identityResponse.json();
+        if (!identityResponse.ok || !identity.sub || !identity.email || !identity.email_verified) {
+          throw new Error('Please sign in again to enable private account storage.');
+        }
+        return json({ access_token: tokens.access_token, expires_in: tokens.expires_in,
+          account: { id: identity.sub, email: identity.email } });
       } catch (error) {
         return json({ error: error.message }, 401, { 'Set-Cookie': sessionHeader('', 0) });
       }
