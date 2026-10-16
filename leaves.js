@@ -37,7 +37,7 @@ function validateLeaves(leaves) {
   dialog.innerHTML = `<form id="leave-form"><div class="modal-heading"><h2 id="leave-modal-title">Add leave</h2><button type="button" id="leave-close" aria-label="Close">×</button></div><input type="hidden" id="leave-id"><label>Date<input id="leave-date" type="date" required></label><div class="form-grid"><label>Leave type<select id="leave-type"><option value="casual">Casual leave</option><option value="medical">Medical leave</option><option value="compoff">Comp-off leave</option></select></label><label>Days<select id="leave-days"><option value="1">1 day</option><option value="0.5">Half day</option></select></label></div><label>Details / reason<input id="leave-notes" maxlength="200" placeholder="Optional reason or details"></label><p>Each record deducts from the selected month. A negative balance shows leave taken beyond your allowance.</p><div class="modal-actions"><button type="button" id="leave-cancel">Cancel</button><button class="primary">Save leave</button></div></form>`;
   document.body.append(dialog);
   const settings = document.createElement('dialog');
-  settings.innerHTML = `<form id="leave-settings-form"><div class="modal-heading"><h2>Monthly leave allowances</h2><button type="button" id="leave-settings-close" aria-label="Close">×</button></div><p id="leave-effective"></p><div class="form-grid"><label>Casual days per month<input id="leave-casual" type="number" min="0" step="0.5" required></label><label>Medical days per month<input id="leave-medical" type="number" min="0" step="0.5" required></label><label>Comp-off days per month<input id="leave-compoff" type="number" min="0" step="0.5" required></label></div><p>Repeats automatically from this month until your next allowance change. Unused days reset each month; they do not carry over.</p><div class="modal-actions"><button type="button" id="leave-settings-cancel">Cancel</button><button class="primary">Save allowances</button></div></form>`;
+  settings.innerHTML = `<form id="leave-settings-form"><div class="modal-heading"><h2>Monthly leave allowances</h2><button type="button" id="leave-settings-close" aria-label="Close">×</button></div><p id="leave-effective"></p><div class="form-grid"><label>Casual days per month<input id="leave-casual" type="number" min="0" step="0.5" required></label><label>Medical days per month<input id="leave-medical" type="number" min="0" step="0.5" required></label><label>Comp-off days per month<input id="leave-compoff" type="number" min="0" step="0.5" required></label></div><p>Repeats automatically from this month until your next allowance change. Positive unused days carry forward automatically into each following month.</p><div class="modal-actions"><button type="button" id="leave-settings-cancel">Cancel</button><button class="primary">Save allowances</button></div></form>`;
   document.body.append(settings);
   function openLeave(entry) {
     $('leave-form').reset();
@@ -61,12 +61,12 @@ function validateLeaves(leaves) {
     if (!active) return;
     $('title').textContent = 'Your leaves, at a glance.';
     $('subtitle').textContent = 'Set your monthly allowances and keep track of time off.';
-    const month = $('month').value, allowance = allowanceFor(month);
+    const month = $('month').value, totals = pocketMonthTotals(data, month), allowance = totals.leaveTotal;
     const entries = store().entries.filter(e => e.date.slice(0, 7) === month).sort((a, b) => b.date.localeCompare(a.date));
-    $('leave-policy').textContent = 'Allowances repeat monthly · Unused days reset each month';
+    $('leave-policy').textContent = 'Allowances repeat monthly · Positive unused days carry forward';
     $('leave-stats').innerHTML = types.map(type => {
       const used = entries.filter(e => e.type === type).reduce((sum, e) => sum + e.days, 0);
-      return `<article class="stat ${type === 'casual' ? 'dark' : ''}"><div>${label(type)} leave remaining</div><h2>${allowance[type] - used} days</h2><small>${allowance[type]} allowed · ${used} taken this month</small></article>`;
+      return `<article class="stat ${type === 'casual' ? 'dark' : ''}"><div>${label(type)} leave remaining</div><h2>${allowance[type] - used} days</h2><small>${totals.allowance[type]} monthly + ${totals.leaveCarried[type]} carried · ${used} taken</small></article>`;
     }).join('');
     $('leave-empty').hidden = entries.length > 0;
     $('leave-rows').innerHTML = entries.map(e => `<tr><td>${esc(e.date)}</td><td><span class="badge">${label(e.type)} leave</span></td><td>${e.days}</td><td class="leave-notes">${esc(e.notes || '—')}</td><td class="row-actions"><button data-action="edit" data-id="${esc(e.id)}" aria-label="Edit leave on ${esc(e.date)}">Edit</button><button data-action="delete" data-id="${esc(e.id)}" aria-label="Delete leave on ${esc(e.date)}">×</button></td></tr>`).join('');
