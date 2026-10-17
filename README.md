@@ -2,6 +2,10 @@
 
 A browser-based monthly budget and leave tracker with separate Google account workspaces and private Google Sheets backups.
 
+## Public pages
+
+`index.html` is the public homepage, with privacy-first product messaging and a link to the budgeting workspace at `app.html`. `privacy-policy.html` explains the service's privacy practices, while `data-policy.html` maps where each class of data is processed and how users can remove it. Claims distinguish between the browser-local working copy, the user's private Google Sheet, the encrypted session cookie, and the absence of a separate Pocket budget database.
+
 ## Leave tracking
 
 Open **Leaves** and choose a month, then **Set monthly allowances** to set casual, medical, and comp-off days (including half days). Casual leave repeats from that month until the next configured change. Medical and comp-off credits apply once to the selected month; enter them manually when received. Positive unused days carry forward monthly for each leave type. Add a leave for each date taken, choose its type (including comp-off), and enter details or a reason; records can be edited or deleted, and taking more than the allowance displays a negative balance.
@@ -37,6 +41,8 @@ The OAuth client also needs this **Authorized JavaScript origin**:
 ```text
 https://pocketmonthlybudget.netlify.app
 ```
+
+After Google authorization, the server returns the user to `/app.html`.
 
 After changing Netlify environment variables, trigger a new production deploy.
 

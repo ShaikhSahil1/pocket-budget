@@ -1,2 +1,117 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pocket · Monthly budget</title><link rel="stylesheet" href="style.css"></head><body><aside><a class="brand" href="#">◒ <span>pocket<span class="dot">.</span></span></a><div class="workspace">YOUR WORKSPACE</div><nav id="nav"></nav><div class="aside-bottom"><div class="tip">A little clarity.<br>A lot more peace of mind.<span>Your money, in perspective.</span></div><div class="profile"><b>ME</b><span>My personal space<small>Monthly budget tracker</small></span></div></div></aside><main><header><span>My workspace <span class="slash">/</span> <b id="crumb">Overview</b></span><div class="saved">● Saved on this device</div></header><section><div class="heading"><div><div class="eyebrow">MAKE ROOM FOR WHAT MATTERS</div><h1 id="title">Your month, at a glance.</h1><p id="subtitle">A clear picture of what came in, what went out, and what's left.</p></div><button class="primary" id="add">＋ Add expense</button></div><div class="toolbar"><div class="month-picker"><button id="prev" aria-label="Previous month">‹</button><input type="month" id="month" aria-label="Selected month"><button id="next" aria-label="Next month">›</button></div><div class="actions"><select id="currency" aria-label="Currency"><option value="INR">INR · ₹</option><option value="USD">USD · $</option><option value="GBP">GBP · £</option><option value="EUR">EUR · €</option></select><button id="export">↗ Export CSV</button><button id="balance">⚙ Set monthly balance</button></div></div><div class="stats"><article class="stat dark"><div>Available balance <span>↗</span></div><h2 id="available"></h2><small id="balance-note"></small><div class="meter"><i id="meter"></i></div></article><article class="stat"><div>Starting balance <span>▣</span></div><h2 id="starting"></h2><small id="starting-detail">Your funds for this month</small></article><article class="stat"><div>Total expenses <span>↗</span></div><h2 id="spent"></h2><small id="expense-count"></small></article><article class="stat"><div>Awaiting reimbursement <span>↶</span></div><h2 id="pending"></h2><small>Added back only when received</small></article></div><div class="middle"><article class="panel breakdown"><div class="panel-heading"><h3>Where your money goes</h3><span>This month</span></div><div class="breakdown-body"><div class="donut" id="donut"><div><small>Total spent</small><strong id="donut-total"></strong></div></div><div id="legend"></div></div></article><article class="panel insight"><div class="eyebrow">✦ MONTHLY PERSPECTIVE</div><h3>A little planning.<br>A better month.</h3><p id="insight"></p><div class="insight-foot"><span>Daily spending allowance</span><strong id="daily"></strong></div></article></div><article class="panel transactions"><div class="panel-heading"><div><h3 id="table-title">Recent expenses</h3><span>Every little expense, accounted for.</span></div><input id="search" placeholder="⌕  Search expenses…" aria-label="Search expenses"></div><div class="table-wrap"><table><thead><tr><th>EXPENSE</th><th>CATEGORY</th><th>DATE</th><th>STATUS</th><th class="right">AMOUNT</th><th></th></tr></thead><tbody id="rows"></tbody></table></div><div id="empty"><div>↗</div><h3>A fresh start for your month.</h3><p>Set your starting balance, then add your first expense.</p><button id="first" class="primary">＋ Add your first expense</button></div><div class="table-footer"><span id="row-count"></span><span>Small steps. Smarter spending.</span></div></article><footer><span>◒ pocket · A little more in control.</span><span>Local storage + optional Google Sheets · Manual cloud sync</span></footer></section></main><dialog id="modal"><form id="form"><div class="modal-heading"><h2 id="modal-title">Add an expense</h2><button type="button" id="close" aria-label="Close">×</button></div><input type="hidden" id="edit-id"><label>Expense name<input id="name" required maxlength="100" placeholder="e.g. Lunch with the team"></label><div class="form-grid"><label>Amount<input id="amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label><label>Date<input type="date" id="date" required></label></div><label>Category<select id="category"></select></label><label>Details / subcategory<input id="details" placeholder="e.g. Food, clothes, train ticket" maxlength="200"></label><label class="check"><input type="checkbox" id="refundable"> This expense will be reimbursed</label><label id="received-wrap" class="check"><input type="checkbox" id="received"> Reimbursement received</label><div class="modal-actions"><button type="button" id="cancel">Cancel</button><button class="primary" type="submit">Save expense</button></div></form></dialog><dialog id="balance-modal"><form id="balance-form"><div class="modal-heading"><h2>Monthly starting balance</h2><button type="button" id="close-balance">×</button></div><p>Enter this month’s new funds only. Positive unused money from earlier months is added automatically. Expenses are deducted and received reimbursements are added back.</p><label>Starting balance<input type="number" id="balance-value" min="0" step="0.01" required></label><div class="modal-actions"><button class="primary">Save balance</button></div></form></dialog><div id="toast" role="status"></div><script src="account-storage.js"></script><script src="carry-forward.js"></script><script src="currency-support.js"></script><script src="app.js"></script><script src="leaves.js"></script><script src="backup-validation.js"></script><script src="google-account-sync.js"></script><script src="month-tools.js"></script><script src="profile-panel.js"></script><script src="currency-settings.js"></script><script src="exchange-rates.js"></script><script src="mini-tools.js"></script><script src="travel-planner.js"></script><script src="mini-tool-cards.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A calm monthly budget that saves your financial data to your own private Google Sheet—not a Pocket database.">
+  <title>Pocket — Your budget. Your Google Sheet.</title>
+  <link rel="stylesheet" href="marketing.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="logo" href="index.html" aria-label="Pocket home"><span class="logo-mark">◒</span> pocket<span>.</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#how-it-works">How it works</a>
+      <a href="#features">Features</a>
+      <a href="privacy-policy.html">Privacy</a>
+    </nav>
+    <a class="button button-small" href="app.html">Open Pocket <span>↗</span></a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow"><span></span> PRIVATE BY DESIGN</div>
+        <h1>Your money story.<br><em>Only yours.</em></h1>
+        <p class="lede">A thoughtful monthly budget that keeps your records in a private Google Sheet you own. No Pocket database. No selling your financial data.</p>
+        <div class="hero-actions">
+          <a class="button" href="app.html">Start budgeting <span>↗</span></a>
+          <a class="text-link" href="#privacy-promise">See our privacy promise <span>↓</span></a>
+        </div>
+        <div class="trust-row">
+          <span><i>✓</i> Your Google account</span>
+          <span><i>✓</i> Your private Sheet</span>
+          <span><i>✓</i> Your control</span>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-label="Illustration of Pocket saving a budget to a private Google Sheet">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="budget-card">
+          <div class="card-top"><b>October overview</b><span>•••</span></div>
+          <small>AVAILABLE BALANCE</small>
+          <strong>₹42,680</strong>
+          <div class="progress"><i></i></div>
+          <div class="mini-stats"><span>Spent<b>₹17,320</b></span><span>Carried forward<b>₹6,400</b></span></div>
+        </div>
+        <div class="sheet-card">
+          <div class="sheet-icon">▦</div>
+          <div><small>SAVED TO</small><b>My private Google Sheet</b></div>
+          <span class="check">✓</span>
+        </div>
+        <div class="privacy-seal"><span>⌾</span><b>No Pocket<br>database</b></div>
+      </div>
+    </section>
+
+    <section class="promise" id="privacy-promise">
+      <p class="section-number">01 / OUR PROMISE</p>
+      <div>
+        <h2>We built a budget app<br>that doesn’t want your data.</h2>
+        <p>Pocket needs access to help you organize your budget—not ownership of your information. Your working copy stays in your browser, and cloud sync writes directly to a private spreadsheet in your Google Drive.</p>
+      </div>
+      <a class="round-link" href="data-policy.html" aria-label="Read the data policy">↗</a>
+    </section>
+
+    <section class="steps" id="how-it-works">
+      <div class="section-intro">
+        <div><p class="section-number">02 / HOW IT WORKS</p><h2>Simple by design.<br>Private by default.</h2></div>
+        <p>Connect once. Pocket creates a private spreadsheet for your account and keeps your budget in sync.</p>
+      </div>
+      <div class="step-grid">
+        <article><span>01</span><div class="step-icon">G</div><h3>Sign in with Google</h3><p>Use your own Google account. Pocket requests only the access needed to identify you and manage the Sheet it creates.</p></article>
+        <article><span>02</span><div class="step-icon">▦</div><h3>We create your Sheet</h3><p>A private “Pocket Budget” spreadsheet is created in your Drive. It belongs to your Google account.</p></article>
+        <article><span>03</span><div class="step-icon">↻</div><h3>Your budget stays in sync</h3><p>Changes save in your browser first, then sync directly to your Sheet. You can open or export it whenever you like.</p></article>
+      </div>
+    </section>
+
+    <section class="features" id="features">
+      <div class="feature-copy">
+        <p class="section-number">03 / CALM MONEY MANAGEMENT</p>
+        <h2>Clarity for the month.<br>Without the noise.</h2>
+        <p>See what came in, what went out, what is awaiting reimbursement, and what can carry into next month.</p>
+        <ul>
+          <li><span>✓</span> Monthly balances and expense categories</li>
+          <li><span>✓</span> Reimbursement tracking</li>
+          <li><span>✓</span> Positive balance carry-forward</li>
+          <li><span>✓</span> CSV and full JSON exports</li>
+        </ul>
+      </div>
+      <div class="feature-panel">
+        <div class="feature-panel-head"><span>Where your money goes</span><small>THIS MONTH</small></div>
+        <div class="feature-chart"><div class="donut"><span><small>Total spent</small><b>₹17,320</b></span></div><ul><li><i></i>Personal buying <b>₹7,850</b></li><li><i></i>Monthly travel <b>₹4,620</b></li><li><i></i>Business trip <b>₹3,700</b></li><li><i></i>Reimbursable <b>₹1,150</b></li></ul></div>
+      </div>
+    </section>
+
+    <section class="control">
+      <div class="control-mark">◒</div>
+      <div><p class="section-number">YOUR DATA, YOUR EXIT</p><h2>Open it. Export it.<br>Delete it. Anytime.</h2></div>
+      <p>Pocket doesn’t lock your records into a proprietary database. Your spreadsheet remains visible in Google Drive, and the app also offers portable CSV and JSON exports.</p>
+    </section>
+
+    <section class="cta">
+      <p>MAKE A LITTLE ROOM FOR WHAT MATTERS</p>
+      <h2>A calmer month<br>starts here.</h2>
+      <a class="button button-light" href="app.html">Open your private workspace <span>↗</span></a>
+      <small>Free to use · Google account required · You stay in control</small>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="logo" href="index.html"><span class="logo-mark">◒</span> pocket<span>.</span></a>
+    <p>A little clarity. A lot more peace of mind.</p>
+    <nav aria-label="Legal navigation"><a href="privacy-policy.html">Privacy policy</a><a href="data-policy.html">Data policy</a><a href="app.html">Open app</a></nav>
+    <small>© 2026 Pocket. Your money, in perspective.</small>
+  </footer>
+</body>
+</html>
 

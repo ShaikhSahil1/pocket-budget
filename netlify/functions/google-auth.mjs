@@ -111,7 +111,7 @@ export default async (request) => {
         grant_type: 'authorization_code',
       });
       if (!tokens.refresh_token) throw new Error('Google did not return a refresh token. Revoke the old Pocket Budget permission and connect again.');
-      const headers = new Headers({ Location: '/?google=connected', 'Cache-Control': 'no-store' });
+      const headers = new Headers({ Location: '/app.html?google=connected', 'Cache-Control': 'no-store' });
       headers.append('Set-Cookie', sessionHeader(seal(tokens.refresh_token, cookieSecret)));
       headers.append('Set-Cookie', stateHeader('', 0));
       return new Response(null, { status: 302, headers });

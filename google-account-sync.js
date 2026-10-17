@@ -3,7 +3,6 @@
   panel.className = 'panel cloud-panel';
   panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
-  document.querySelector('footer span:last-child').textContent = 'Private account storage · Google Sheets auto-sync';
   let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, timer, revision = 0, generation = 0;
   let sheetReady = false, workspaceReady = false;
   const sessionKey = 'pocket-active-google-account';

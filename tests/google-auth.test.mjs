@@ -21,6 +21,7 @@ test('OAuth verifies identity on the server and requires private-file access', a
     const state = authorization.searchParams.get('state');
     const callback = await handler(new Request('https://pocket.test/api/google-auth?code=example&state=' + state, { headers: { Cookie: '__Host-pocket_google_state=' + state } }));
     assert.equal(callback.status, 302);
+    assert.equal(callback.headers.get('location'), '/app.html?google=connected');
     const cookie = callback.headers.getSetCookie().find(value => value.startsWith('__Host-pocket_google_session=')).split(';')[0];
     assert.ok(!cookie.includes('test-refresh'));
     const request = () => new Request('https://pocket.test/api/google-auth', { method: 'POST', headers: { Cookie: cookie, Origin: 'https://pocket.test', 'X-Requested-With': 'XmlHttpRequest', 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'refresh' }) });
