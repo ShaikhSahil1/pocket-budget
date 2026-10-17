@@ -17,7 +17,7 @@ test('built-in guide answers common product questions without an API key', () =>
 });
 
 test('Gemini prompt stays product-only and protects sensitive data', () => {
-  assert.equal(CHAT_MODEL, 'gemini-2.5-flash-lite');
+  assert.equal(CHAT_MODEL, 'gemini-3.8-flash');
   assert.match(systemPrompt(), /Answer only questions about Monthly Pocket/);
   assert.match(systemPrompt(), /Never ask for or accept passwords/);
 });

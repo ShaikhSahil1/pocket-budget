@@ -1,4 +1,4 @@
-export const CHAT_MODEL = 'gemini-2.5-flash-lite';
+export const CHAT_MODEL = 'gemini-3.8-flash';
 
 export const PRODUCT_KNOWLEDGE = `
 Monthly Pocket is a browser-based monthly budget app. It costs ₹499 once for lifetime access; there is no subscription. Payments are processed and rechecked through Razorpay.
