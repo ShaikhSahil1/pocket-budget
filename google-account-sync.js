@@ -263,3 +263,16 @@
     if (new URLSearchParams(location.search).has('google')) history.replaceState(null, '', location.pathname);
   }).finally(() => { if (account && workspaceReady) document.body.classList.remove('account-locked'); });
 })();
+
+// Load the shared product-support chat after the app shell is ready.
+if (!document.querySelector('link[href="chat.css"]')) {
+  const chatStyles = document.createElement('link');
+  chatStyles.rel = 'stylesheet';
+  chatStyles.href = 'chat.css';
+  document.head.append(chatStyles);
+}
+if (!document.querySelector('script[src="chat.js"]')) {
+  const chatScript = document.createElement('script');
+  chatScript.src = 'chat.js';
+  document.body.append(chatScript);
+}
