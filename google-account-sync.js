@@ -61,22 +61,30 @@
       const order = await auth('create_lifetime_order');
       if (order.entitled) { location.reload(); return; }
       await loadRazorpay();
+      let verificationStarted = false;
       const checkout = new Razorpay({
         key: order.keyId, order_id: order.orderId, amount: order.amount, currency: order.currency,
         name: 'Monthly Pocket', description: 'Lifetime access · one-time payment', prefill: { email: order.email },
         readonly: { email: true }, theme: { color: '#234f42' }, retry: { enabled: true },
         handler: async result => {
+          verificationStarted = true;
           status('Verifying your payment securely…');
           try {
             await auth('verify_lifetime_payment', { payment: { orderId: result.razorpay_order_id, paymentId: result.razorpay_payment_id, signature: result.razorpay_signature } });
             toast('Payment verified · Lifetime access unlocked'); location.reload();
-          } catch (error) { paying = false; controls(); status('Payment could not be verified · ' + error.message); toast(error.message); }
+          } catch (error) { paying = false; controls(); status('Payment could not be verified · ' + error.message); toast(error.message); signal('monthly-pocket:payment-required'); }
         },
-        modal: { ondismiss: () => { paying = false; controls(); status('Payment cancelled · No charge was recorded.'); } },
+        modal: { ondismiss: () => {
+          if (verificationStarted) return;
+          paying = false; controls(); status('Payment cancelled · No charge was recorded.');
+          signal('monthly-pocket:payment-required');
+        } },
       });
       checkout.on('payment.failed', response => { paying = false; controls(); const message = response.error?.description || 'Payment failed. Try again.'; status(message); toast(message); });
+      const profilePanel = document.getElementById('profile-panel');
+      if (profilePanel?.open) profilePanel.close();
       checkout.open();
-    } catch (error) { paying = false; controls(); status('Checkout unavailable · ' + error.message); toast(error.message); }
+    } catch (error) { paying = false; controls(); status('Checkout unavailable · ' + error.message); toast(error.message); signal('monthly-pocket:payment-required'); }
   }
   async function restoreLifetime() {
     const paymentId = $('restore-payment-id').value.trim();
