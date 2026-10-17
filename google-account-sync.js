@@ -1,7 +1,7 @@
 (() => {
   const panel = document.createElement('article');
   panel.className = 'panel cloud-panel';
-  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><h3>Unlock Monthly Pocket for life.</h3><p>Pay ₹499 once. No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
+  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-progress" id="cloud-progress" role="progressbar" aria-label="Google Sheet activity" aria-valuetext="Idle" hidden><span></span></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><h3>Unlock Monthly Pocket for life.</h3><p>Pay ₹499 once. No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
   let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, paying = false, timer, revision = 0, generation = 0;
   let sheetReady = false, workspaceReady = false;
@@ -12,6 +12,11 @@
   };
   const dirty = () => !!account && localStorage.getItem(key('dirty')) === '1';
   const status = message => $('cloud-status').textContent = message;
+  const sheetLoading = active => {
+    const progress = $('cloud-progress');
+    progress.hidden = !active;
+    progress.setAttribute?.('aria-valuetext', active ? 'Reading your Google Sheet' : 'Idle');
+  };
   const signal = name => {
     if (typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent(name));
   };
@@ -31,6 +36,7 @@
   }
   function lock(message) {
     generation++; clearTimeout(timer); account = null; token = ''; sheet = ''; sheetReady = false; workspaceReady = false;
+    sheetLoading(false);
     pocketStorageKey = null; baseline = undefined; data = emptyPocketData();
     document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
     $('currency').value = data.currency; $('search').value = ''; render();
@@ -118,14 +124,17 @@
     return created.id;
   }
   async function readCloud() {
-    if (!sheetReady) throw Error('Your private spreadsheet is not ready. Reload to retry.');
-    const meta = await sheets('?fields=sheets.properties.title');
-    if (!meta.sheets?.some(s => s.properties.title === 'PocketData')) return null;
-    const body = await sheets('/values/' + encodeURIComponent("'PocketData'!A:A") + '?valueRenderOption=UNFORMATTED_VALUE');
-    if (!body.values?.length) return null;
-    if (body.values[0][0] !== 'pocket-account-backup-v1' || body.values[1]?.[0] !== account.id) throw Error('This spreadsheet does not belong to this Monthly Pocket account.');
-    const raw = body.values.slice(2).map(row => row[0] || '').join('');
-    validatePocketBackup(JSON.parse(raw)); return raw;
+    sheetLoading(true);
+    try {
+      if (!sheetReady) throw Error('Your private spreadsheet is not ready. Reload to retry.');
+      const meta = await sheets('?fields=sheets.properties.title');
+      if (!meta.sheets?.some(s => s.properties.title === 'PocketData')) return null;
+      const body = await sheets('/values/' + encodeURIComponent("'PocketData'!A:A") + '?valueRenderOption=UNFORMATTED_VALUE');
+      if (!body.values?.length) return null;
+      if (body.values[0][0] !== 'pocket-account-backup-v1' || body.values[1]?.[0] !== account.id) throw Error('This spreadsheet does not belong to this Monthly Pocket account.');
+      const raw = body.values.slice(2).map(row => row[0] || '').join('');
+      validatePocketBackup(JSON.parse(raw)); return raw;
+    } finally { sheetLoading(false); }
   }
   function remember(raw, clearDirty = true) {
     baseline = raw;

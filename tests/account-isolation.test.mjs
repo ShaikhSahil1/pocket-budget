@@ -6,9 +6,16 @@ import vm from 'node:vm';
 const fresh = n => ({ balances: { '2026-10': n }, expenses: [], currency: 'INR' });
 const storageKey = (id, name) => `pocket-account:${id}:${name}`;
 async function workspace(id, storage = new Map(), cloud = null) {
-  const elements = new Map(), listeners = {}, writes = [], classes = new Set();
+  const elements = new Map(), listeners = {}, writes = [], classes = new Set(), progressVisibility = [];
   const element = name => {
-    if (!elements.has(name)) elements.set(name, { hidden: false, value: '', style: {}, before() {}, close() {}, click() {} });
+    if (!elements.has(name)) {
+      const made = { hidden: false, value: '', style: {}, before() {}, close() {}, click() {}, setAttribute() {} };
+      if (name === 'cloud-progress') {
+        let hidden = false;
+        Object.defineProperty(made, 'hidden', { get: () => hidden, set: value => { hidden = value; progressVisibility.push(value); } });
+      }
+      elements.set(name, made);
+    }
     return elements.get(name);
   };
   let signedIn = id;
@@ -49,8 +56,14 @@ async function workspace(id, storage = new Map(), cloud = null) {
   vm.runInContext(fs.readFileSync('backup-validation.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('google-account-sync.js', 'utf8'), context);
   for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve));
-  return { context, element, storage, listeners, writes, classes, switchAccount: next => signedIn = next };
+  return { context, element, storage, listeners, writes, classes, progressVisibility, switchAccount: next => signedIn = next };
 }
+
+test('Google Sheet reads show and then clear the loading bar', async () => {
+  const app = await workspace('A', new Map(), fresh(250));
+  assert.ok(app.progressVisibility.includes(false));
+  assert.equal(app.progressVisibility.at(-1), true);
+});
 
 test('shared-browser legacy data is never assigned to a signed-in account', async () => {
   const storage = new Map([['pocket-v1', JSON.stringify(fresh(900))]]);
