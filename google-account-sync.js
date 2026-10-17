@@ -1,7 +1,7 @@
 (() => {
   const panel = document.createElement('article');
   panel.className = 'panel cloud-panel';
-  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
+  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
   let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, timer, revision = 0, generation = 0;
   let sheetReady = false, workspaceReady = false;
@@ -69,7 +69,7 @@
     if (!meta.sheets?.some(s => s.properties.title === 'PocketData')) return null;
     const body = await sheets('/values/' + encodeURIComponent("'PocketData'!A:A") + '?valueRenderOption=UNFORMATTED_VALUE');
     if (!body.values?.length) return null;
-    if (body.values[0][0] !== 'pocket-account-backup-v1' || body.values[1]?.[0] !== account.id) throw Error('This spreadsheet does not belong to this Pocket account.');
+    if (body.values[0][0] !== 'pocket-account-backup-v1' || body.values[1]?.[0] !== account.id) throw Error('This spreadsheet does not belong to this Monthly Pocket account.');
     const raw = body.values.slice(2).map(row => row[0] || '').join('');
     validatePocketBackup(JSON.parse(raw)); return raw;
   }
@@ -177,7 +177,7 @@
     document.querySelector('.profile span').textContent = account.email;
     document.querySelector('.saved').textContent = '● Saved for your account';
     $('legacy-import').hidden = !localStorage.getItem('pocket-v1');
-    status('Finding your private Pocket spreadsheet…');
+    status('Finding your private Monthly Pocket spreadsheet…');
     sheet = await privateSheet(); sheetReady = true;
     $('account-sheet').href = 'https://docs.google.com/spreadsheets/d/' + encodeURIComponent(sheet) + '/edit';
     if (dirty()) {
