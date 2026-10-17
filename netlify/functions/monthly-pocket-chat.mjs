@@ -42,18 +42,23 @@ export default async request => {
 
   try {
     const model = cleanMessage(process.env.GEMINI_MODEL, 80) || CHAT_MODEL;
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+    const history = cleanHistory(body.history).map(item => `${item.role === 'model' ? 'Monthly Pocket Guide' : 'User'}: ${item.parts[0].text}`).join('\n');
+    const input = `${history ? `${history}\n` : ''}User: ${message}`;
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      signal: AbortSignal.timeout(12000),
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt() }] },
-        contents: [...cleanHistory(body.history), { role: 'user', parts: [{ text: message }] }],
-        generationConfig: { temperature: 0.25, maxOutputTokens: 300 },
+        model,
+        input,
+        system_instruction: systemPrompt(),
+        store: false,
+        generation_config: { max_output_tokens: 300 },
       }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error?.message || 'Gemini is temporarily unavailable.');
-    const reply = result.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
+    const reply = String(result.output_text || '').trim();
     if (!reply) throw new Error('No answer was returned.');
     return json({ reply, mode: 'gemini' });
   } catch {
