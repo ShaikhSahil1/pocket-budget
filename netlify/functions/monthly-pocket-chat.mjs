@@ -61,7 +61,8 @@ export default async request => {
     const reply = String(result.output_text || '').trim();
     if (!reply) throw new Error('No answer was returned.');
     return json({ reply, mode: 'gemini' });
-  } catch {
+  } catch (error) {
+    console.warn('Monthly Pocket Chat Gemini fallback:', error?.name || 'Error', cleanMessage(error?.message, 180));
     return json({ reply: fallbackAnswer(message), mode: 'built-in', limited: true });
   }
 };
