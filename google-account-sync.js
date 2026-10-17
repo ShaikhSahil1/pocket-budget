@@ -1,9 +1,9 @@
 (() => {
   const panel = document.createElement('article');
   panel.className = 'panel cloud-panel';
-  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
+  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><h3>Unlock Monthly Pocket for life.</h3><p>Pay ₹499 once. No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
-  let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, timer, revision = 0, generation = 0;
+  let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, paying = false, timer, revision = 0, generation = 0;
   let sheetReady = false, workspaceReady = false;
   const sessionKey = 'pocket-active-google-account';
   const key = name => {
@@ -17,7 +17,11 @@
   function controls() {
     $('cloud-connect').hidden = !!account;
     $('cloud-connect').disabled = busy;
-    $('account-actions').hidden = !account;
+    $('account-actions').hidden = !account || !workspaceReady;
+    $('lifetime-access').hidden = !account || workspaceReady;
+    $('buy-lifetime').disabled = busy || paying;
+    $('paywall-logout').disabled = busy || paying;
+    $('restore-lifetime').disabled = busy || paying;
     ['cloud-load', 'cloud-save'].forEach(id => $(id).disabled = busy || !sheetReady);
     ['cloud-disconnect', 'json-export', 'json-import', 'legacy-import'].forEach(id => $(id).disabled = busy);
     $('account-sheet').hidden = !sheetReady;
@@ -33,16 +37,54 @@
     document.querySelector('.saved').textContent = '● Sign in to save';
     controls(); status(message);
   }
-  async function auth(action) {
-    const response = await fetch('/api/google-auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XmlHttpRequest' }, body: JSON.stringify({ action }) });
+  async function auth(action, values = {}) {
+    const response = await fetch('/api/google-auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XmlHttpRequest' }, body: JSON.stringify({ action, ...values }) });
     const body = await response.json();
     if (!response.ok) { const error = Error(body.error || 'Google session unavailable.'); error.status = response.status; throw error; }
     return body;
+  }
+  function loadRazorpay() {
+    if (window.Razorpay) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.async = true;
+      script.onload = resolve; script.onerror = () => reject(Error('Razorpay Checkout could not load. Check your connection and try again.'));
+      document.head.append(script);
+    });
+  }
+  async function buyLifetime() {
+    if (!account || paying) return; paying = true; controls(); status('Preparing secure Razorpay checkout…');
+    try {
+      const order = await auth('create_lifetime_order');
+      if (order.entitled) { location.reload(); return; }
+      await loadRazorpay();
+      const checkout = new Razorpay({
+        key: order.keyId, order_id: order.orderId, amount: order.amount, currency: order.currency,
+        name: 'Monthly Pocket', description: 'Lifetime access · one-time payment', prefill: { email: order.email },
+        readonly: { email: true }, theme: { color: '#234f42' }, retry: { enabled: true },
+        handler: async result => {
+          status('Verifying your payment securely…');
+          try {
+            await auth('verify_lifetime_payment', { payment: { orderId: result.razorpay_order_id, paymentId: result.razorpay_payment_id, signature: result.razorpay_signature } });
+            toast('Payment verified · Lifetime access unlocked'); location.reload();
+          } catch (error) { paying = false; controls(); status('Payment could not be verified · ' + error.message); toast(error.message); }
+        },
+        modal: { ondismiss: () => { paying = false; controls(); status('Payment cancelled · No charge was recorded.'); } },
+      });
+      checkout.on('payment.failed', response => { paying = false; controls(); const message = response.error?.description || 'Payment failed. Try again.'; status(message); toast(message); });
+      checkout.open();
+    } catch (error) { paying = false; controls(); status('Checkout unavailable · ' + error.message); toast(error.message); }
+  }
+  async function restoreLifetime() {
+    const paymentId = $('restore-payment-id').value.trim();
+    if (!paymentId || paying) return; paying = true; controls(); status('Checking your Razorpay payment ID…');
+    try { await auth('restore_lifetime_payment', { paymentId }); toast('Payment verified · Lifetime access restored'); location.reload(); }
+    catch (error) { paying = false; controls(); status('Access could not be restored · ' + error.message); toast(error.message); }
   }
   async function refresh() {
     const currentGeneration = generation, result = await auth('refresh');
     if (currentGeneration !== generation) throw Error('Account changed. Reload the page.');
     if (!account || result.account?.id !== account.id) { lock('Your Google account changed. Reload to sign in again.'); throw Error('Account changed. No data was synced.'); }
+    if (result.entitled === false) { location.reload(); throw Error('Lifetime access is required.'); }
     token = result.access_token; expires = Date.now() + result.expires_in * 1000 - 30000;
   }
   async function google(url, options = {}) {
@@ -121,6 +163,9 @@
     timer = setTimeout(() => { if (busy) { queue(false); return; } run(() => saveCloud(true)); }, 1200);
   }
   $('cloud-connect').onclick = () => location.assign('/api/google-auth?action=start');
+  $('buy-lifetime').onclick = buyLifetime;
+  $('restore-lifetime').onclick = restoreLifetime;
+  $('paywall-logout').onclick = () => run(async () => { await auth('logout'); localStorage.removeItem(sessionKey); lock('Signed out. Choose the Google account you want to use.'); });
   $('cloud-load').onclick = () => run(() => loadCloud());
   $('cloud-save').onclick = () => run(() => saveCloud());
   $('cloud-disconnect').onclick = () => run(async () => {
@@ -167,14 +212,19 @@
   run(async () => {
     const result = await auth('refresh');
     if (!result.account?.id) throw Error('Sign in again to enable account storage.');
-    account = result.account; token = result.access_token; expires = Date.now() + result.expires_in * 1000;
-    pocketStorageKey = pocketAccountKey(account.id, 'data');
+    account = result.account;
+    $('account-email').textContent = account.email;
+    document.querySelector('.profile span').textContent = account.email;
     localStorage.setItem(sessionKey, account.id);
+    if (result.entitled === false) {
+      document.querySelector('.saved').textContent = '● Lifetime access required';
+      status('Secure payment required · ₹499 once for lifetime access.'); controls(); return;
+    }
+    token = result.access_token; expires = Date.now() + result.expires_in * 1000;
+    pocketStorageKey = pocketAccountKey(account.id, 'data');
     const raw = localStorage.getItem(pocketStorageKey);
     data = raw ? validatePocketBackup(JSON.parse(raw)) : emptyPocketData();
     $('currency').value = data.currency; render(); workspaceReady = true;
-    $('account-email').textContent = account.email;
-    document.querySelector('.profile span').textContent = account.email;
     document.querySelector('.saved').textContent = '● Saved for your account';
     $('legacy-import').hidden = !localStorage.getItem('pocket-v1');
     status('Finding your private Monthly Pocket spreadsheet…');

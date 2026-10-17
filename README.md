@@ -24,11 +24,19 @@ Enable **Google Drive API** and **Google Sheets API** in the OAuth client's Goog
 
 The production site uses a Netlify Function and an encrypted, HTTP-only cookie so a Google Sheets connection can be restored after the tab or browser is closed.
 
+## ₹499 lifetime access
+
+When Razorpay is configured, a signed-in account must complete one server-created ₹499 INR order before the workspace unlocks. The server verifies the Razorpay checkout signature, fetches the order and payment directly from Razorpay, and checks that the order is paid, the payment is captured, the amount and currency match, no refund has been recorded, and the order belongs to the current Google account. A signed entitlement is then written to the hidden `PocketLicense` tab in that account's private Google Sheet. Users can restore access with their Razorpay payment ID; the server accepts it only when Razorpay confirms the same account-bound order.
+
+Payment enforcement activates only when both Razorpay keys are configured. If neither is present, existing users remain unlocked so an incomplete deployment cannot accidentally lock everyone out. Use Razorpay test keys first, complete a test transaction, enable automatic capture in Razorpay, then replace them with live keys when ready.
+
 Configure these environment variables in Netlify with Functions scope:
 
 - `GOOGLE_CLIENT_ID` — the Google OAuth Web application client ID.
 - `GOOGLE_CLIENT_SECRET` — the matching OAuth client secret. Never commit it.
 - `COOKIE_SECRET` — a private random value of at least 32 characters. Never commit it.
+- `RAZORPAY_KEY_ID` — the Razorpay test or live Key ID.
+- `RAZORPAY_KEY_SECRET` — the matching Razorpay secret. Never commit it or expose it to browser code.
 
 Add this exact URI to the OAuth client's **Authorized redirect URIs**:
 

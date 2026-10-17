@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createLifetimeOrder, getLifetimeStatus, restoreLifetimePayment, verifyLifetimePayment } from './_lifetime-access.mjs';
 
 const sessionCookie = '__Host-pocket_google_session';
 const stateCookie = '__Host-pocket_google_state';
@@ -66,6 +67,17 @@ async function tokenRequest(values) {
   return body;
 }
 
+async function connectedAccount(sealedRefreshToken, clientId, clientSecret, cookieSecret) {
+  if (!sealedRefreshToken) throw new Error('Not connected.');
+  const refreshToken = open(sealedRefreshToken, cookieSecret);
+  const tokens = await tokenRequest({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: 'refresh_token' });
+  if (!String(tokens.scope || '').split(' ').includes('https://www.googleapis.com/auth/drive.file')) throw new Error('Please sign in again to allow your private Monthly Pocket spreadsheet.');
+  const identityResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: `Bearer ${tokens.access_token}` } });
+  const identity = await identityResponse.json();
+  if (!identityResponse.ok || !identity.sub || !identity.email || !identity.email_verified) throw new Error('Please sign in again to enable private account storage.');
+  return { accessToken: tokens.access_token, expiresIn: tokens.expires_in, account: { id: identity.sub, email: identity.email } };
+}
+
 function requireSameOrigin(request) {
   const origin = request.headers.get('origin');
   if (!origin || origin !== new URL(request.url).origin || request.headers.get('x-requested-with') !== 'XmlHttpRequest') {
@@ -122,33 +134,22 @@ export default async (request) => {
     const body = await request.json();
     const sealedRefreshToken = cookieValue(request, sessionCookie);
 
-    if (body.action === 'refresh') {
-      if (!sealedRefreshToken) return json({ error: 'Not connected.' }, 401);
-      let refreshToken;
-      try { refreshToken = open(sealedRefreshToken, cookieSecret); }
-      catch { return json({ error: 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': sessionHeader('', 0) }); }
-      try {
-        const tokens = await tokenRequest({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token',
-        });
-        if (!String(tokens.scope || '').split(' ').includes('https://www.googleapis.com/auth/drive.file')) {
-          throw new Error('Please sign in again to allow your private Pocket spreadsheet.');
-        }
-        const identityResponse = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
-          headers: { Authorization: `Bearer ${tokens.access_token}` },
-        });
-        const identity = await identityResponse.json();
-        if (!identityResponse.ok || !identity.sub || !identity.email || !identity.email_verified) {
-          throw new Error('Please sign in again to enable private account storage.');
-        }
-        return json({ access_token: tokens.access_token, expires_in: tokens.expires_in,
-          account: { id: identity.sub, email: identity.email } });
-      } catch (error) {
-        return json({ error: error.message }, 401, { 'Set-Cookie': sessionHeader('', 0) });
-      }
+    if (['refresh', 'create_lifetime_order', 'verify_lifetime_payment', 'restore_lifetime_payment'].includes(body.action)) {
+      let session;
+      try { session = await connectedAccount(sealedRefreshToken, clientId, clientSecret, cookieSecret); }
+      catch (error) { return json({ error: error.message === 'Not connected.' ? error.message : 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': sessionHeader('', 0) }); }
+      if (body.action === 'create_lifetime_order') return json(await createLifetimeOrder({ accessToken: session.accessToken, account: session.account, cookieSecret }));
+      if (body.action === 'verify_lifetime_payment') return json(await verifyLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, payment: body.payment || {} }));
+      if (body.action === 'restore_lifetime_payment') return json(await restoreLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, paymentId: body.paymentId }));
+      const lifetime = await getLifetimeStatus({ accessToken: session.accessToken, accountId: session.account.id, cookieSecret });
+      return json({
+        account: session.account,
+        expires_in: session.expiresIn,
+        billing_enabled: lifetime.enabled,
+        entitled: lifetime.entitled,
+        lifetime_price: { amount: lifetime.amount, currency: lifetime.currency },
+        ...(lifetime.entitled ? { access_token: session.accessToken } : {}),
+      });
     }
 
     if (body.action === 'logout') {
