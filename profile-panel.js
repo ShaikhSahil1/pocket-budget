@@ -29,7 +29,27 @@
   entry.className = 'panel cloud-panel account-entry';
   entry.innerHTML = `<div class="panel-heading"><div><h3>Your private workspace</h3><p>Sign in with Google to access your budget and leaves.</p></div><button id="workspace-sign-in" class="primary">Sign in with Google</button></div>`;
   document.querySelector('section > .stats').before(entry);
+  const entryTitle = entry.querySelector('h3');
+  const entryCopy = entry.querySelector('p');
+  const entryButton = $('workspace-sign-in');
+  const showProfile = () => {
+    if (!dialog.open) dialog.showModal();
+    profile.setAttribute('aria-expanded', 'true');
+  };
+  const showSignedOut = () => {
+    entryTitle.textContent = 'Your private workspace';
+    entryCopy.textContent = 'Sign in with Google to access your budget and leaves.';
+    entryButton.textContent = 'Sign in with Google';
+  };
+  document.addEventListener('monthly-pocket:account-locked', showSignedOut);
+  document.addEventListener('monthly-pocket:payment-required', () => {
+    entryTitle.textContent = 'Complete your lifetime access';
+    entryCopy.textContent = 'Pay ₹499 once with Razorpay, or restore an earlier verified payment.';
+    entryButton.textContent = 'Continue to secure payment';
+    showProfile();
+  });
   $('workspace-sign-in').onclick = () => {
+    if (!$('lifetime-access').hidden) { showProfile(); return; }
     if ($('cloud-connect').disabled) { profile.click(); return; }
     $('cloud-connect').click();
   };

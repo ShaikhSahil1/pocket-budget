@@ -12,6 +12,9 @@
   };
   const dirty = () => !!account && localStorage.getItem(key('dirty')) === '1';
   const status = message => $('cloud-status').textContent = message;
+  const signal = name => {
+    if (typeof CustomEvent === 'function') document.dispatchEvent(new CustomEvent(name));
+  };
   const rawData = () => JSON.stringify(data);
   const hash = raw => { let value = 2166136261; for (const char of String(raw)) value = Math.imul(value ^ char.charCodeAt(0), 16777619); return (value >>> 0).toString(16) + ':' + String(raw).length; };
   function controls() {
@@ -36,6 +39,7 @@
     document.querySelector('.profile span').textContent = 'Sign in to your workspace';
     document.querySelector('.saved').textContent = '● Sign in to save';
     controls(); status(message);
+    signal('monthly-pocket:account-locked');
   }
   async function auth(action, values = {}) {
     const response = await fetch('/api/google-auth', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XmlHttpRequest' }, body: JSON.stringify({ action, ...values }) });
@@ -218,7 +222,10 @@
     localStorage.setItem(sessionKey, account.id);
     if (result.entitled === false) {
       document.querySelector('.saved').textContent = '● Lifetime access required';
-      status('Secure payment required · ₹499 once for lifetime access.'); controls(); return;
+      status('Secure payment required · ₹499 once for lifetime access.');
+      controls();
+      signal('monthly-pocket:payment-required');
+      return;
     }
     token = result.access_token; expires = Date.now() + result.expires_in * 1000;
     pocketStorageKey = pocketAccountKey(account.id, 'data');
