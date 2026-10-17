@@ -7,7 +7,7 @@ test('₹499 Razorpay payment is verified and restored only for its Google accou
   const previous = { fetch: globalThis.fetch, id: process.env.RAZORPAY_KEY_ID, secret: process.env.RAZORPAY_KEY_SECRET };
   process.env.RAZORPAY_KEY_ID = 'rzp_test_example'; process.env.RAZORPAY_KEY_SECRET = 'razorpay-secret';
   const cookieSecret = 'cookie-secret-that-is-long-enough-for-testing';
-  let license = '', hasLicenseSheet = false, orderNotes;
+  let license = '', hasLicenseSheet = false, orderNotes, amountRefunded = 0;
   globalThis.fetch = async (url, options = {}) => {
     const value = String(url);
     if (value.startsWith('https://www.googleapis.com/drive/v3/files?')) return { ok: true, json: async () => ({ files: [{ id: 'sheet-A' }] }) };
@@ -20,7 +20,7 @@ test('₹499 Razorpay payment is verified and restored only for its Google accou
       return { ok: true, json: async () => ({ id: 'order_Example123', amount: body.amount, currency: body.currency }) };
     }
     if (value.endsWith('/orders/order_Example123')) return { ok: true, json: async () => ({ id: 'order_Example123', status: 'paid', amount: 49900, amount_paid: 49900, currency: 'INR', notes: orderNotes }) };
-    if (value.endsWith('/payments/pay_Example123')) return { ok: true, json: async () => ({ id: 'pay_Example123', order_id: 'order_Example123', status: 'captured', captured: true, amount: 49900, amount_refunded: 0, currency: 'INR', created_at: 1760720000 }) };
+    if (value.endsWith('/payments/pay_Example123')) return { ok: true, json: async () => ({ id: 'pay_Example123', order_id: 'order_Example123', status: 'captured', captured: true, amount: 49900, amount_refunded: amountRefunded, currency: 'INR', created_at: 1760720000 }) };
     throw new Error('Unexpected request: ' + value);
   };
   try {
@@ -31,7 +31,17 @@ test('₹499 Razorpay payment is verified and restored only for its Google accou
     await assert.rejects(() => verifyLifetimePayment({ accessToken: 'token', account, cookieSecret, payment: { orderId: order.orderId, paymentId: 'pay_Example123', signature: '0'.repeat(64) } }), /signature/);
     const signature = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update('order_Example123|pay_Example123').digest('hex');
     assert.equal((await verifyLifetimePayment({ accessToken: 'token', account, cookieSecret, payment: { orderId: order.orderId, paymentId: 'pay_Example123', signature } })).entitled, true);
-    assert.ok(license); assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, true);
+    assert.ok(license);
+    const validLicense = license;
+    assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, true);
+    license = validLicense.slice(0, -1) + (validLicense.endsWith('A') ? 'B' : 'A');
+    assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, false);
+    license = validLicense;
+    assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: 'google-account-B', cookieSecret })).entitled, false);
+    amountRefunded = 49900;
+    assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, false);
+    amountRefunded = 0;
+    assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, true);
     license = '';
     assert.equal((await restoreLifetimePayment({ accessToken: 'token', account, cookieSecret, paymentId: 'pay_Example123' })).entitled, true);
     await assert.rejects(() => restoreLifetimePayment({ accessToken: 'token', account: { id: 'google-account-B', email: 'b@example.com' }, cookieSecret, paymentId: 'pay_Example123' }), /No eligible/);
