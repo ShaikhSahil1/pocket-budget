@@ -4,7 +4,7 @@
   panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-progress" id="cloud-progress" role="progressbar" aria-label="Google Sheet activity" aria-valuetext="Idle" hidden><span></span></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><h3>Unlock Monthly Pocket for life.</h3><p>Pay ₹499 once. No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
   let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, paying = false, timer, revision = 0, generation = 0;
-  let sheetReady = false, workspaceReady = false;
+  let sheetReady = false, workspaceReady = false, verifiedOperation = 0, operation = 0;
   const sessionKey = 'pocket-active-google-account';
   const key = name => {
     if (!account) throw Error('Sign in with Google first.');
@@ -107,8 +107,10 @@
   }
   async function google(url, options = {}) {
     const currentGeneration = generation;
-    // Check the cookie's identity before every cloud request, including in stale tabs.
-    await refresh();
+    // Check the cookie's identity once per sync operation (and when the token is
+    // about to expire). Stale tabs still refuse to sync after an account change,
+    // without repeating the server check for every Sheets request in one save.
+    if (verifiedOperation !== operation || Date.now() >= expires) { await refresh(); verifiedOperation = operation; }
     const response = await fetch(url, { ...options, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } });
     const body = await response.json();
     if (currentGeneration !== generation) throw Error('Account changed. Reload the page.');
@@ -169,7 +171,7 @@
     if (revision !== saveRevision) queue(false);
   }
   async function run(action) {
-    if (busy) return; busy = true; controls();
+    if (busy) return; busy = true; operation++; controls();
     try { await action(); } catch (error) {
       if (error.status === 401) lock('Session ended. Sign in again to access your data.');
       else { status('Not synced · ' + error.message); toast(error.message); }
@@ -244,7 +246,7 @@
       signal('monthly-pocket:payment-required');
       return;
     }
-    token = result.access_token; expires = Date.now() + result.expires_in * 1000;
+    token = result.access_token; expires = Date.now() + result.expires_in * 1000 - 30000; verifiedOperation = operation;
     pocketStorageKey = pocketAccountKey(account.id, 'data');
     const raw = localStorage.getItem(pocketStorageKey);
     data = raw ? validatePocketBackup(JSON.parse(raw)) : emptyPocketData();
@@ -264,15 +266,3 @@
   }).finally(() => { if (account && workspaceReady) document.body.classList.remove('account-locked'); });
 })();
 
-// Load the shared product-support chat after the app shell is ready.
-if (!document.querySelector('link[href="chat.css"]')) {
-  const chatStyles = document.createElement('link');
-  chatStyles.rel = 'stylesheet';
-  chatStyles.href = 'chat.css';
-  document.head.append(chatStyles);
-}
-if (!document.querySelector('script[src="chat.js"]')) {
-  const chatScript = document.createElement('script');
-  chatScript.src = 'chat.js';
-  document.body.append(chatScript);
-}

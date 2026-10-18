@@ -18,7 +18,7 @@ async function workspace(id, storage = new Map(), cloud = null) {
     }
     return elements.get(name);
   };
-  let signedIn = id;
+  let signedIn = id, refreshes = 0;
   const context = {
     console, URL, URLSearchParams, Blob, Date, JSON, Number, Object, Array, Set, Error,
     data: fresh(0), cats: [], validateLeaves() {}, render() {}, toast() {}, confirm: () => true,
@@ -35,6 +35,7 @@ async function workspace(id, storage = new Map(), cloud = null) {
     fetch: async (url, options = {}) => {
       if (url === '/api/google-auth') {
         const action = JSON.parse(options.body).action;
+        if (action === 'refresh') refreshes++;
         if (action === 'logout') { signedIn = null; return { ok: true, json: async () => ({ ok: true }) }; }
         return { ok: !!signedIn, status: signedIn ? 200 : 401, json: async () => signedIn ? ({ account: { id: signedIn, email: signedIn + '@example.com' }, access_token: 'token-' + signedIn, expires_in: 3600 }) : ({ error: 'Not connected.' }) };
       }
@@ -56,7 +57,7 @@ async function workspace(id, storage = new Map(), cloud = null) {
   vm.runInContext(fs.readFileSync('backup-validation.js', 'utf8'), context);
   vm.runInContext(fs.readFileSync('google-account-sync.js', 'utf8'), context);
   for (let i = 0; i < 30; i++) await new Promise(resolve => setImmediate(resolve));
-  return { context, element, storage, listeners, writes, classes, progressVisibility, switchAccount: next => signedIn = next };
+  return { context, element, storage, listeners, writes, classes, progressVisibility, refreshes: () => refreshes, switchAccount: next => signedIn = next };
 }
 
 test('Google Sheet reads show and then clear the loading bar', async () => {
@@ -117,4 +118,13 @@ test('signed-out visitors cannot load saved account data', async () => {
   assert.equal(Object.keys(app.context.data.balances).length, 0);
   assert.equal(app.classes.has('account-locked'), true);
   assert.equal(app.context.persist(), false);
+});
+
+test('one Google save checks the signed-in account once, not before every Sheets request', async () => {
+  const app = await workspace('A', new Map([[storageKey('A', 'data'), JSON.stringify(fresh(100))]]));
+  const before = app.refreshes();
+  app.context.data.balances['2026-10'] = 120; app.context.persist();
+  await app.element('cloud-save').onclick();
+  assert.equal(app.writes.length, 1);
+  assert.equal(app.refreshes() - before, 1);
 });

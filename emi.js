@@ -1,14 +1,4 @@
-function validatePocketEmis(emis) {
-  if (emis === undefined) return;
-  if (!Array.isArray(emis) || emis.length > 300) throw Error('Invalid EMI backup.');
-  const validDate = value => typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
-  const ids = new Set();
-  for (const emi of emis) {
-    if (!emi || typeof emi.id !== 'string' || !emi.id || ids.has(emi.id) || typeof emi.name !== 'string' || !emi.name.trim() || emi.name.length > 100 || !Number.isFinite(emi.amount) || emi.amount <= 0 || !validDate(emi.startDate) || !validDate(emi.endDate) || emi.endDate < emi.startDate || (emi.dueDay !== undefined && (!Number.isInteger(emi.dueDay) || emi.dueDay < 1 || emi.dueDay > 31)) || (emi.reminderEnabled !== undefined && typeof emi.reminderEnabled !== 'boolean') || !['auto', 'manual'].includes(emi.mode) || !Array.isArray(emi.manualMonths) || emi.manualMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) || (emi.paidMonths !== undefined && (!Array.isArray(emi.paidMonths) || emi.paidMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)))) || typeof emi.notes !== 'string' || emi.notes.length > 200) throw Error('Invalid EMI record.');
-    ids.add(emi.id);
-  }
-}
-
+// validatePocketEmis lives in backup-validation.js, which loads before this file.
 function pocketEmiDueInMonth(emi, month) {
   if (!emi || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return false;
   const starts = emi.startDate.slice(0, 7), ends = emi.endDate.slice(0, 7);

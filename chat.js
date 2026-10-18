@@ -52,6 +52,7 @@
         body: JSON.stringify({ message: text, history }),
       });
       const body = await response.json().catch(() => ({}));
+      if (response.status === 429) throw new Error(body.error || 'You have asked a lot of questions in a short time. Please wait a few minutes and try again.');
       if (!response.ok) throw new Error(body.error || 'Chat is unavailable right now.');
       waiting.remove();
       addMessage(body.reply, 'bot');

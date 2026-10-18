@@ -1,8 +1,11 @@
 import { CHAT_MODEL, cleanHistory, cleanMessage, fallbackAnswer, systemPrompt } from './_chat-core.mjs';
 
+// Netlify enforces the shared, cross-instance limit below (see config.rateLimit).
+// This per-instance limiter is only a second line of defence for bursts.
 const requests = new Map();
-const WINDOW_MS = 5 * 60 * 1000;
-const MAX_REQUESTS = 12;
+const WINDOW_MS = 3 * 60 * 1000;
+const MAX_REQUESTS = 8;
+const MAX_TRACKED_CLIENTS = 5000;
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -22,7 +25,13 @@ function rateLimited(request) {
   const now = Date.now();
   const recent = (requests.get(client) || []).filter(time => now - time < WINDOW_MS);
   recent.push(now);
+  requests.delete(client);
   requests.set(client, recent);
+  // Drop idle and oldest clients so a long-lived instance cannot grow without bound.
+  for (const [key, times] of requests) {
+    if (requests.size <= MAX_TRACKED_CLIENTS && times.some(time => now - time < WINDOW_MS)) break;
+    if (key !== client) requests.delete(key);
+  }
   return recent.length > MAX_REQUESTS;
 }
 
@@ -67,4 +76,10 @@ export default async request => {
   }
 };
 
-export const config = { path: '/api/monthly-pocket-chat' };
+export const config = {
+  path: '/api/monthly-pocket-chat',
+  // Shared limit across every function instance: 8 questions per visitor IP every
+  // 3 minutes (180 s is Netlify's maximum window). Excess requests get HTTP 429
+  // before this function runs, so they cost no Gemini usage.
+  rateLimit: { windowLimit: 8, windowSize: 180, aggregateBy: ['ip', 'domain'] },
+};

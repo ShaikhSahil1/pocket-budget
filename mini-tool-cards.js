@@ -32,12 +32,3 @@
   draw();
 })();
 
-// Load the iOS UPI helper after the account-backed workspace features are ready.
-const pocketQrScript = document.createElement('script');
-pocketQrScript.src = 'vendor/jsQR.js?v=1.4.0';
-pocketQrScript.onload = () => {
-  const pocketUpiScript = document.createElement('script');
-  pocketUpiScript.src = 'upi-payment.js?v=20261018-2';
-  document.body.append(pocketUpiScript);
-};
-document.body.append(pocketQrScript);

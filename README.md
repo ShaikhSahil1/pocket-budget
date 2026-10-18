@@ -8,7 +8,7 @@ A browser-based monthly budget and leave tracker with separate Google account wo
 
 ## Leave tracking
 
-Open **Leaves** and choose a month, then **Set monthly allowances** to set casual, medical, and comp-off days (including half days). Casual leave repeats from that month until the next configured change. Medical and comp-off credits apply once to the selected month; enter them manually when received. Positive unused days carry forward monthly for each leave type. Add a leave for each date taken, choose its type (including comp-off), and enter details or a reason; records can be edited or deleted, and taking more than the allowance displays a negative balance.
+Open **Leaves** and choose a month, then **Set monthly allowances**. Casual leave is added automatically every month (1.5 days by default, adjustable) or, if you choose manual mode, entered month by month. Festival, medical and comp-off credits are always entered manually for the month in which they are received. All amounts accept half days, and positive unused days of every type carry forward monthly. Add a leave with its date, type (casual, festival, medical or comp-off), number of days (any half-day step, so multi-day leave is one entry) and details such as the festival name; records can be edited or deleted, and taking more than the allowance displays a negative balance.
 
 Leaves save immediately with budget data in browser storage and use the same optional Google Sheets auto-sync and full JSON backup/restore. Older backups without leaves still load; restoring one replaces all local data, including leaves. Monthly budget CSV exports contain expenses only.
 
@@ -27,6 +27,8 @@ The production site uses a Netlify Function and an encrypted, HTTP-only cookie s
 ## ₹499 lifetime access
 
 When Razorpay is configured, a signed-in account must complete one server-created ₹499 INR order before the workspace unlocks. The server verifies the Razorpay checkout signature, fetches the order and payment directly from Razorpay, and checks that the order is paid, the payment is captured, the amount and currency match, no refund has been recorded, and the order belongs to the current Google account. A signed entitlement is then written to the hidden `PocketLicense` tab in that account's private Google Sheet. Users can restore access with their Razorpay payment ID; the server accepts it only when Razorpay confirms the same account-bound order.
+
+To keep saving fast, the server remembers a verified purchase for 6 hours in a separate encrypted, HTTP-only `__Host-pocket_entitlement` cookie that is bound to the Google account and the Razorpay Key ID. While it is valid, session refreshes skip the Drive, Sheets and Razorpay licence checks; after it expires the full Razorpay check runs again, so a refund locks access within about 6 hours. Logging out clears it, and changing `RAZORPAY_KEY_ID` (for example from test to live keys) invalidates every cached entitlement. The browser checks the signed-in account once per Google sync operation (a save, a load or a restore), not before every Sheets request.
 
 Payment enforcement activates only when both Razorpay keys are configured. If neither is present, existing users remain unlocked so an incomplete deployment cannot accidentally lock everyone out. Use Razorpay test keys first, complete a test transaction, enable automatic capture in Razorpay, then replace them with live keys when ready.
 
@@ -62,11 +64,13 @@ Choose a month and use **Clear month…**. Choose expenses plus starting balance
 
 ## Automatic carry-forward
 
-Positive available money and unused casual, medical and comp-off days carry into every following month, including skipped months and year boundaries. New monthly funds and the recurring casual allowance are added to the carried amount. Medical and comp-off credits apply only in months where you manually enter them, while their unused balances carry forward. Negative balances are displayed in their original month but do not carry forward. Editing, deleting or restoring past records recalculates future totals; no carry entries are duplicated in storage. Enter only new monthly funds in Set monthly balance, excluding the carry-forward shown on the dashboard. CSV exports include new funds, carry-forward and the combined starting balance.
+Positive available money and unused casual, medical and comp-off days carry into every following month, including skipped months and year boundaries. New monthly funds and the recurring casual allowance are added to the carried amount. Medical and comp-off credits apply only in months where you manually enter them, while their unused balances carry forward. Negative balances are displayed in their original month but do not carry forward. Editing, deleting or restoring past records recalculates future totals; no carry entries are duplicated in storage. Use **Set / add funds** to either set this month’s new funds (replacing the amount entered earlier) or add an extra amount, such as a bonus, on top of it. Enter only new funds, excluding the carry-forward shown on the dashboard. Scheduled EMI payments are deducted from the month’s available balance. CSV exports include new funds, carry-forward and the combined starting balance.
 
 ## EMI due dates and reminders
 
 Each EMI plan stores its first and last payment month, monthly amount, due day (1–31), notes and schedule mode. When a month is shorter than the selected due day, the payment is due on that month’s last day. Users can enable a browser notification containing the EMI name, amount and notes; it appears once on the due date when Monthly Pocket is open or becomes visible. A payment already marked paid for that month does not notify. Browser permission is requested only when the user saves an EMI with reminders enabled, and old EMI records remain compatible with reminders off.
+
+Open **EMI** to see what is due, paid and remaining for the selected month, filter plans (due this month, upcoming, completed) and open a plan for its details. Automatic plans appear every month in their date range; manual plans appear only in the months you add. Scheduled EMIs are also listed with that month’s expenses and summarized on the Overview page.
 
 ## User profile
 
@@ -75,6 +79,10 @@ Click the user profile in the sidebar (below navigation on mobile) to open Googl
 ## Currency preferences
 
 New accounts default to INR. The currency menu lists currencies supported by the browser’s Intl runtime, with an ISO currency fallback for older browsers. A currency change asks whether to save permanently to the signed-in account, use temporarily until reload, or cancel. Temporary choices are not included in stored data or cloud backups. Currency changes format amounts without exchange-rate conversion.
+
+## Help chat
+
+Every public page and the workspace include a Monthly Pocket help chat. It answers product questions using Gemini when `GEMINI_API_KEY` is set (optionally `GEMINI_MODEL`; default `gemini-3.5-flash-lite`), and falls back to built-in answers when the key is missing or Gemini fails. Only the typed question and the last few chat turns are sent; never enter financial records or credentials. Netlify enforces a shared limit of 8 questions per visitor IP every 3 minutes across all function instances (`config.rateLimit` in `monthly-pocket-chat.mjs`), with a smaller in-memory limiter as backup; limited visitors see a “please wait” message.
 
 ## Mini tools
 
@@ -94,3 +102,10 @@ Open **Pay & Add Expense** on a phone, enter or scan the UPI QR details, then ch
 - **iPhone/iPad:** iOS cannot list installed apps, so pick Google Pay, PhonePe, Paytm, CRED, BHIM or **Other UPI app**. If the app does not open within a few seconds, a waiting panel lets you choose another app or review the payment.
 
 The last app you used is shown first. When you return, Monthly Pocket asks whether you completed the payment: **Yes, add expense** (amount and details can be corrected) or **I didn't pay · Don't add**. Expenses are marked user-confirmed and not bank-verified. Desktop browsers can fill the form but cannot launch UPI apps. App URL schemes are defined by each app and should be re-tested on real devices after app updates. Many UPI apps limit link or QR payments to personal UPI IDs; merchant QR codes work most reliably.
+
+## Development notes
+
+- **Script order:** `app.html` lists every feature script in one fixed order. Scripts extend each other by wrapping the shared `render()`, `monthly()` and `persist()` functions, so a script listed later wraps the ones before it. Add new features as a `<script>` tag in `app.html`; do not inject local scripts with `document.createElement('script')` (`tests/load-order.test.mjs` enforces this). Only third-party scripts loaded on demand, such as Razorpay Checkout, are injected at runtime.
+- **Shared definitions:** expense categories live only in `categories.js`; full-backup and EMI validation live only in `backup-validation.js`.
+- **Tests:** run `node --test tests/*.test.mjs`.
+- **Environment:** besides the Google and Razorpay variables above, the chat uses `GEMINI_API_KEY` and optional `GEMINI_MODEL`.

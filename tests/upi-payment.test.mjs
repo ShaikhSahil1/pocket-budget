@@ -4,8 +4,14 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source = fs.readFileSync('upi-payment.js', 'utf8').split('(() => {')[0];
-const context = vm.createContext({ URL, URLSearchParams, Number, String, Error, RegExp, Array });
+const context = vm.createContext({ URL, URLSearchParams, Number, String, Error, RegExp, Array, Object });
+vm.runInContext(fs.readFileSync('categories.js', 'utf8'), context);
 vm.runInContext(source, context);
+
+test('UPI expenses use the shared category list', () => {
+  assert.equal(source.includes("'Monthly Travelling'"), false);
+  assert.throws(() => context.pocketUpiExpense({}, { id: 'x', name: 'Tea', amount: 5, date: '2026-10-18', category: 'Groceries' }));
+});
 
 test('validates UPI IDs and rejects malformed recipients', () => {
   assert.equal(context.pocketValidUpiId('cafe.corner@okaxis'), true);

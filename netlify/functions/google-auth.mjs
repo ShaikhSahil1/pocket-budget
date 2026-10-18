@@ -1,8 +1,12 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { createLifetimeOrder, getLifetimeStatus, restoreLifetimePayment, verifyLifetimePayment } from './_lifetime-access.mjs';
+import { createLifetimeOrder, getLifetimeStatus, lifetimePlan, restoreLifetimePayment, verifyLifetimePayment } from './_lifetime-access.mjs';
 
 const sessionCookie = '__Host-pocket_google_session';
 const stateCookie = '__Host-pocket_google_state';
+const entitlementCookie = '__Host-pocket_entitlement';
+// A verified purchase is re-checked with Razorpay at most this often per browser.
+// Refunds therefore lock access within this window instead of on the next request.
+export const ENTITLEMENT_CACHE_SECONDS = 6 * 60 * 60;
 const sheetsScope = 'openid email https://www.googleapis.com/auth/drive.file';
 
 function settings() {
@@ -45,15 +49,40 @@ function sessionHeader(value, maxAge = 31536000) {
   return `${sessionCookie}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
 }
 
+function entitlementHeader(value, maxAge = ENTITLEMENT_CACHE_SECONDS) {
+  return `${entitlementCookie}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+}
+
+// The cache is bound to the Google account and the Razorpay key in use, so switching
+// accounts or moving from test to live keys forces a fresh verification.
+function entitlementScope(accountId) {
+  return createHash('sha256').update(`${accountId}|${process.env.RAZORPAY_KEY_ID || ''}`).digest('base64url');
+}
+
+function cachedEntitlement(request, accountId, secret) {
+  try {
+    const sealed = cookieValue(request, entitlementCookie);
+    if (!sealed) return false;
+    const cached = JSON.parse(open(sealed, `${secret}|entitlement-cache`));
+    return cached.v === 1 && cached.scope === entitlementScope(accountId) && Number(cached.until) > Date.now();
+  } catch { return false; }
+}
+
+function rememberEntitlement(accountId, secret) {
+  // A separate derived key keeps this cookie from ever being accepted as a session cookie.
+  return entitlementHeader(seal(JSON.stringify({ v: 1, scope: entitlementScope(accountId), until: Date.now() + ENTITLEMENT_CACHE_SECONDS * 1000 }), `${secret}|entitlement-cache`));
+}
+
 function stateHeader(value, maxAge = 600) {
   return `${stateCookie}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
 function json(body, status = 200, headers = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers },
-  });
+  const result = new Headers({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  for (const [name, value] of Object.entries(headers)) {
+    for (const item of Array.isArray(value) ? value : [value]) result.append(name, item);
+  }
+  return new Response(JSON.stringify(body), { status, headers: result });
 }
 
 async function tokenRequest(values) {
@@ -137,11 +166,17 @@ export default async (request) => {
     if (['refresh', 'create_lifetime_order', 'verify_lifetime_payment', 'restore_lifetime_payment'].includes(body.action)) {
       let session;
       try { session = await connectedAccount(sealedRefreshToken, clientId, clientSecret, cookieSecret); }
-      catch (error) { return json({ error: error.message === 'Not connected.' ? error.message : 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': sessionHeader('', 0) }); }
+      catch (error) { return json({ error: error.message === 'Not connected.' ? error.message : 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0)] }); }
       if (body.action === 'create_lifetime_order') return json(await createLifetimeOrder({ accessToken: session.accessToken, account: session.account, cookieSecret }));
-      if (body.action === 'verify_lifetime_payment') return json(await verifyLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, payment: body.payment || {} }));
-      if (body.action === 'restore_lifetime_payment') return json(await restoreLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, paymentId: body.paymentId }));
-      const lifetime = await getLifetimeStatus({ accessToken: session.accessToken, accountId: session.account.id, cookieSecret });
+      if (body.action === 'verify_lifetime_payment') return json(await verifyLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, payment: body.payment || {} }), 200, { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) });
+      if (body.action === 'restore_lifetime_payment') return json(await restoreLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, paymentId: body.paymentId }), 200, { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) });
+      const billingEnabled = !!(process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_SECRET);
+      const lifetime = billingEnabled && cachedEntitlement(request, session.account.id, cookieSecret)
+        ? { enabled: true, entitled: true, amount: lifetimePlan.amount, currency: lifetimePlan.currency }
+        : await getLifetimeStatus({ accessToken: session.accessToken, accountId: session.account.id, cookieSecret });
+      const cacheHeader = !lifetime.enabled ? {} : lifetime.entitled
+        ? (cachedEntitlement(request, session.account.id, cookieSecret) ? {} : { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) })
+        : { 'Set-Cookie': entitlementHeader('', 0) };
       return json({
         account: session.account,
         expires_in: session.expiresIn,
@@ -149,7 +184,7 @@ export default async (request) => {
         entitled: lifetime.entitled,
         lifetime_price: { amount: lifetime.amount, currency: lifetime.currency },
         ...(lifetime.entitled ? { access_token: session.accessToken } : {}),
-      });
+      }, 200, cacheHeader);
     }
 
     if (body.action === 'logout') {
@@ -163,7 +198,7 @@ export default async (request) => {
           });
         } catch {}
       }
-      return json({ ok: true }, 200, { 'Set-Cookie': sessionHeader('', 0) });
+      return json({ ok: true }, 200, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0)] });
     }
 
     return json({ error: 'Unknown action.' }, 400);

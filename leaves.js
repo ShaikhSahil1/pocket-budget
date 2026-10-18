@@ -132,7 +132,3 @@ function validateLeaves(leaves) {
   render();
 })();
 
-// Keep the core HTML stable while loading the optional EMI workspace.
-const pocketEmiScript = document.createElement('script');
-pocketEmiScript.src = 'emi.js?v=20261018-5';
-document.body.append(pocketEmiScript);

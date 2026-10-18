@@ -5,7 +5,14 @@ import vm from 'node:vm';
 
 const source = fs.readFileSync('emi.js', 'utf8').split('(() => {')[0];
 const context = vm.createContext({ Date, Number, Error, Set, Array });
+// The EMI validator is shared with full-backup validation.
+vm.runInContext(fs.readFileSync('backup-validation.js', 'utf8'), context);
 vm.runInContext(source, context);
+
+test('EMI validation has a single definition', () => {
+  assert.equal(source.includes('function validatePocketEmis'), false);
+  assert.equal(fs.readFileSync('backup-validation.js', 'utf8').match(/function validatePocketEmis/g).length, 1);
+});
 
 const plan = (changes = {}) => ({ id: 'emi-1', name: 'Home loan', amount: 12500, startDate: '2026-10-15', endDate: '2027-03-15', mode: 'auto', manualMonths: [], paidMonths: [], notes: '', ...changes });
 

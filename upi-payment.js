@@ -52,9 +52,8 @@ function pocketBuildUpiPaymentUrl(draft, app = 'generic', platform = 'ios', fall
   return target.ios + query;
 }
 
-function pocketUpiExpense(draft, values) {
+function pocketUpiExpense(draft, values, categories = pocketCategories) {
   const amount = Number(values.amount);
-  const categories = ['Business Trip', 'Reimbursable', 'Personal Buying', 'Monthly Travelling'];
   if (!Number.isFinite(amount) || amount <= 0 || typeof values.name !== 'string' || !values.name.trim() || !/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(values.date) || !categories.includes(values.category)) throw Error('Enter valid expense details and the amount you actually paid.');
   const detailParts = ['User-confirmed UPI payment · not bank-verified'];
   if (draft.upiId) detailParts.push('Paid to ' + draft.upiId);
