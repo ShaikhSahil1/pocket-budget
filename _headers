@@ -6,3 +6,9 @@
 
 /leaves.js
   Cache-Control: public, max-age=0, must-revalidate
+
+/upi-payment.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/vendor/jsQR.js
+  Cache-Control: public, max-age=31536000, immutable
