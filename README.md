@@ -113,3 +113,7 @@ The last app you used is shown first. When you return, Monthly Pocket asks wheth
 - **Shared definitions:** expense categories live only in `categories.js`; full-backup and EMI validation live only in `backup-validation.js`.
 - **Tests:** run `node --test tests/*.test.mjs`.
 - **Environment:** besides the Google and Razorpay variables above, the chat uses `GEMINI_API_KEY` and optional `GEMINI_MODEL`.
+
+## First-login app tour
+
+The first time an account opens its dashboard on a browser, a guided tour highlights each tab and button one at a time: month picker, Set / add funds, balance cards, Add expense, Pay & Add Expense, spending chart, expense list, currency, Export CSV, Clear month, each category tab, Leaves (allowances and Add leave), Mini tools, EMI (Add EMI), the user profile and the help chat. Use **Next**/**Back** or the arrow keys; **Skip tour** or Escape ends it. Finishing or skipping is remembered per account in this browser (`pocket-account:<id>:data:tour-done`). Replay it any time from **User profile → Take the app tour**. Steps whose element is hidden on the current screen are skipped automatically.
