@@ -72,9 +72,11 @@ Each EMI plan stores its first and last payment month, monthly amount, due day (
 
 Open **EMI** to see what is due, paid and remaining for the selected month, filter plans (due this month, upcoming, completed) and open a plan for its details. Automatic plans appear every month in their date range; manual plans appear only in the months you add. Scheduled EMIs are also listed with that month’s expenses and summarized on the Overview page.
 
-## User profile
+## Returning visitors and the user profile
 
-Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. Signed-out visitors also have a main-page sign-in button.
+After Google sign-in the server also sets `__Host-pocket_signed_in=1`, a readable cookie that contains no token or account data. When it is present, opening the homepage goes straight to the dashboard (`index.html?home`, used by the dashboard logo, keeps the homepage open), and the dashboard shows “Opening your dashboard…” instead of a sign-in prompt while the session is checked. Access is still decided by the encrypted HttpOnly session cookie; the hint is cleared on logout or when the session is no longer valid, and older sessions receive it on their next refresh.
+
+The user profile never opens by itself. Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. If lifetime access is required, the main page shows **Pay ₹499 securely** and an **Already paid? Restore access** link, which opens the profile at the restore form.
 
 ## Currency preferences
 

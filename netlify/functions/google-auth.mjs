@@ -4,6 +4,10 @@ import { createLifetimeOrder, getLifetimeStatus, lifetimePlan, restoreLifetimePa
 const sessionCookie = '__Host-pocket_google_session';
 const stateCookie = '__Host-pocket_google_state';
 const entitlementCookie = '__Host-pocket_entitlement';
+// Readable by page scripts on purpose: it holds no token or account data, only a hint
+// that this browser has a Google session, so pages can open the dashboard directly.
+// Access is still decided by the encrypted HttpOnly session cookie on every request.
+const signedInCookie = '__Host-pocket_signed_in';
 // A verified purchase is re-checked with Razorpay at most this often per browser.
 // Refunds therefore lock access within this window instead of on the next request.
 export const ENTITLEMENT_CACHE_SECONDS = 6 * 60 * 60;
@@ -71,6 +75,10 @@ function cachedEntitlement(request, accountId, secret) {
 function rememberEntitlement(accountId, secret) {
   // A separate derived key keeps this cookie from ever being accepted as a session cookie.
   return entitlementHeader(seal(JSON.stringify({ v: 1, scope: entitlementScope(accountId), until: Date.now() + ENTITLEMENT_CACHE_SECONDS * 1000 }), `${secret}|entitlement-cache`));
+}
+
+function signedInHeader(signedIn) {
+  return `${signedInCookie}=${signedIn ? '1' : ''}; Path=/; Secure; SameSite=Lax; Max-Age=${signedIn ? 31536000 : 0}`;
 }
 
 function stateHeader(value, maxAge = 600) {
@@ -155,6 +163,7 @@ export default async (request) => {
       const headers = new Headers({ Location: '/app.html?google=connected', 'Cache-Control': 'no-store' });
       headers.append('Set-Cookie', sessionHeader(seal(tokens.refresh_token, cookieSecret)));
       headers.append('Set-Cookie', stateHeader('', 0));
+      headers.append('Set-Cookie', signedInHeader(true));
       return new Response(null, { status: 302, headers });
     }
 
@@ -166,7 +175,7 @@ export default async (request) => {
     if (['refresh', 'create_lifetime_order', 'verify_lifetime_payment', 'restore_lifetime_payment'].includes(body.action)) {
       let session;
       try { session = await connectedAccount(sealedRefreshToken, clientId, clientSecret, cookieSecret); }
-      catch (error) { return json({ error: error.message === 'Not connected.' ? error.message : 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0)] }); }
+      catch (error) { return json({ error: error.message === 'Not connected.' ? error.message : 'Invalid session. Connect Google again.' }, 401, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0), signedInHeader(false)] }); }
       if (body.action === 'create_lifetime_order') return json(await createLifetimeOrder({ accessToken: session.accessToken, account: session.account, cookieSecret }));
       if (body.action === 'verify_lifetime_payment') return json(await verifyLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, payment: body.payment || {} }), 200, { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) });
       if (body.action === 'restore_lifetime_payment') return json(await restoreLifetimePayment({ accessToken: session.accessToken, account: session.account, cookieSecret, paymentId: body.paymentId }), 200, { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) });
@@ -174,9 +183,12 @@ export default async (request) => {
       const lifetime = billingEnabled && cachedEntitlement(request, session.account.id, cookieSecret)
         ? { enabled: true, entitled: true, amount: lifetimePlan.amount, currency: lifetimePlan.currency }
         : await getLifetimeStatus({ accessToken: session.accessToken, accountId: session.account.id, cookieSecret });
-      const cacheHeader = !lifetime.enabled ? {} : lifetime.entitled
-        ? (cachedEntitlement(request, session.account.id, cookieSecret) ? {} : { 'Set-Cookie': rememberEntitlement(session.account.id, cookieSecret) })
-        : { 'Set-Cookie': entitlementHeader('', 0) };
+      const cacheCookie = !lifetime.enabled ? [] : lifetime.entitled
+        ? (cachedEntitlement(request, session.account.id, cookieSecret) ? [] : [rememberEntitlement(session.account.id, cookieSecret)])
+        : [entitlementHeader('', 0)];
+      // Browsers signed in before the hint cookie existed get it on their next refresh.
+      const hintCookie = cookieValue(request, signedInCookie) === '1' ? [] : [signedInHeader(true)];
+      const cacheHeader = { 'Set-Cookie': [...cacheCookie, ...hintCookie] };
       return json({
         account: session.account,
         expires_in: session.expiresIn,
@@ -198,7 +210,7 @@ export default async (request) => {
           });
         } catch {}
       }
-      return json({ ok: true }, 200, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0)] });
+      return json({ ok: true }, 200, { 'Set-Cookie': [sessionHeader('', 0), entitlementHeader('', 0), signedInHeader(false)] });
     }
 
     return json({ error: 'Unknown action.' }, 400);

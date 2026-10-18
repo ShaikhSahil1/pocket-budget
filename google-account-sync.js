@@ -263,6 +263,6 @@
       else status('Local and cloud changes need attention. Download a backup, then choose Load or Save.');
     } else await loadCloud(false);
     if (new URLSearchParams(location.search).has('google')) history.replaceState(null, '', location.pathname);
-  }).finally(() => { if (account && workspaceReady) document.body.classList.remove('account-locked'); });
+  }).finally(() => { if (account && workspaceReady) document.body.classList.remove('account-locked'); signal('monthly-pocket:session-checked'); });
 })();
 
