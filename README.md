@@ -4,6 +4,8 @@ A browser-based monthly budget and leave tracker with separate Google account wo
 
 ## Public pages
 
+`refund-policy.html` (₹199 purchase is non-refundable once unlocked; duplicate, charged-but-not-unlocked and wrong-amount payments are refunded) and `contact.html` (support email minisoftwareshop@gmail.com) are linked from every footer, as Razorpay's website review requires. All pages name Minisoftwareshop as the operator.
+
 `index.html` is the public homepage, with privacy-first product messaging and a link to the budgeting workspace at `app.html`. `privacy-policy.html` explains the service's privacy practices, `terms-of-service.html` states the service terms, and `data-policy.html` maps where each class of data is processed and how users can remove it. Claims distinguish between the browser-local working copy, the user's private Google Sheet, the encrypted session cookie, and the absence of a separate Monthly Pocket budget database.
 
 ## Leave tracking

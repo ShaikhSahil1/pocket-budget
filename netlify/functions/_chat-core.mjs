@@ -9,7 +9,8 @@ Privacy: Monthly Pocket does not sell financial data. Google handles sign-in and
 Recovery: restore a deleted Sheet from Google Drive Trash within 30 days. If permanently deleted, paid access can be restored with the original Razorpay pay_ ID, creating a new Sheet. Old budget data can return only from the original browser's local copy or a downloaded JSON backup.
 Payment: UPI may be offered by Razorpay Checkout when available. Access is linked to the Google account used for payment. A captured, non-refunded ₹199 payment is required.
 Google warning: the OAuth warning disappears only after the Google consent screen is configured for production and Google completes any required verification.
-Helpful pages: /how-to-use for the complete guide, /privacy-policy for privacy, /data-policy for storage details, and /terms-of-service for terms.
+Refunds: the ₹199 purchase is non-refundable once access is unlocked; duplicate, charged-but-not-unlocked or wrong-amount payments are refunded in full (email minisoftwareshop@gmail.com with the Razorpay pay_ ID within 30 days). Support: minisoftwareshop@gmail.com. Monthly Pocket is operated by Minisoftwareshop.
+Helpful pages: /refund-policy for refunds, /contact for support, /how-to-use for the complete guide, /privacy-policy for privacy, /data-policy for storage details, and /terms-of-service for terms.
 `;
 
 const fallbackItems = [
