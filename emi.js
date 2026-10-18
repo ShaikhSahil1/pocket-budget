@@ -39,9 +39,15 @@ function pocketEmiExpenseForMonth(emi, month) {
 
   const view = document.createElement('div');
   view.id = 'emi-view';
-  view.hidden = true;
   view.innerHTML = `<div class="emi-hero"><div><div class="eyebrow">EMI CONTROL CENTRE</div><h3>Know what is due, paid and remaining.</h3><p>Automatic plans appear every month in their date range. Manual plans appear only when you choose to add them for that month.</p><div class="emi-legend"><span><i class="active"></i>Active</span><span><i class="upcoming"></i>Upcoming</span><span><i class="completed"></i>Completed</span></div></div><div class="emi-total"><small>REMAINING THIS MONTH</small><strong id="emi-month-remaining">₹0</strong><span id="emi-month-count">0 payments due</span></div></div><div class="emi-summary"><article><span>Total due</span><strong id="emi-month-total">₹0</strong><small id="emi-due-count">0 scheduled</small></article><article><span>Paid</span><strong id="emi-month-paid">₹0</strong><small id="emi-paid-count">0 marked paid</small></article><article><span>Active plans</span><strong id="emi-active-count">0</strong><small id="emi-plan-count">0 plans in total</small></article><article><span>Total monthly commitment</span><strong id="emi-commitment">₹0</strong><small>All automatic active plans</small></article></div><article class="panel emi-plans"><div class="panel-heading emi-panel-heading"><div><h3>Your EMI plans</h3><span id="emi-schedule-label"></span></div><div class="emi-filters" id="emi-filters"><button class="active" data-filter="all">All</button><button data-filter="due">Due this month</button><button data-filter="upcoming">Upcoming</button><button data-filter="completed">Completed</button></div></div><div id="emi-cards" class="emi-cards"></div><div id="emi-empty" class="emi-empty"><div>▦</div><h3>No EMI plan added yet</h3><p>Add your first EMI once. Monthly Pocket will build the schedule and show what is due each month.</p><button class="primary" id="emi-empty-add">＋ Add your first EMI</button></div></article>`;
-  document.querySelector('.stats').before(view);
+  // Keep the EMI workspace inside its own host. Other feature scripts hide the
+  // dashboard's direct children, so mounting the cards one level deeper keeps
+  // saved plans visible when those scripts update the page.
+  const host = document.createElement('div');
+  host.id = 'emi-workspace-host';
+  host.hidden = true;
+  host.append(view);
+  document.querySelector('section > footer').before(host);
   const overview = document.createElement('article');
   overview.id = 'overview-emi';
   overview.className = 'panel overview-emi';
@@ -61,6 +67,11 @@ function pocketEmiExpenseForMonth(emi, month) {
   dialog.className = 'emi-dialog';
   dialog.innerHTML = `<form id="emi-form"><div class="modal-heading"><div><span class="eyebrow">NEW PAYMENT PLAN</span><h2 id="emi-modal-title">Add EMI</h2></div><button type="button" id="emi-close" aria-label="Close">×</button></div><input id="emi-id" type="hidden"><div class="emi-form-intro"><b>One setup. A clear month-by-month view.</b><span>Enter the monthly amount and full date range. The day in “From date” becomes your monthly due day.</span></div><label>What is this EMI for?<input id="emi-name" maxlength="100" required placeholder="e.g. Home loan, car, phone"></label><div class="form-grid"><label>Monthly payment<input id="emi-amount" type="number" min="0.01" step="0.01" required placeholder="₹ 0.00"></label><label>How should it appear?<select id="emi-mode"><option value="auto">Automatically every month</option><option value="manual">Only when I add the month</option></select></label><label>First payment date<input id="emi-start" type="date" required></label><label>Last payment date<input id="emi-end" type="date" required></label></div><div class="emi-form-preview" id="emi-form-preview">Enter an amount and dates to preview the plan.</div><label>Optional notes<input id="emi-notes" maxlength="200" placeholder="e.g. Bank name, loan reference"></label><div class="modal-actions"><button type="button" id="emi-cancel">Cancel</button><button class="primary">Save EMI plan</button></div></form>`;
   document.body.append(dialog);
+
+  const detailDialog = document.createElement('dialog');
+  detailDialog.className = 'emi-dialog emi-detail-dialog';
+  detailDialog.innerHTML = `<div id="emi-detail-content"></div>`;
+  document.body.append(detailDialog);
 
   const previousRender = render;
   const previousAdd = $('add').onclick;
@@ -90,6 +101,16 @@ function pocketEmiExpenseForMonth(emi, month) {
     previewPlan();
     dialog.showModal();
   }
+  function openEmiDetail(emi) {
+    const month = $('month').value;
+    const metrics = pocketEmiPlanMetrics(emi, month);
+    const due = pocketEmiDueInMonth(emi, month);
+    const progress = Math.round(metrics.elapsed / metrics.installments * 100);
+    const paid = (emi.paidMonths || []).includes(month);
+    $('emi-detail-content').innerHTML = `<div class="modal-heading"><div><span class="eyebrow">EMI PLAN DETAILS</span><h2>${esc(emi.name)}</h2><p>${esc(emi.notes || 'No additional notes')}</p></div><button type="button" data-detail-action="close" aria-label="Close">×</button></div><div class="emi-detail-amount"><span>MONTHLY PAYMENT</span><strong>${money(emi.amount)}</strong><small>${due ? `Due ${dueDate(emi, month)} in ${monthLabel(month)}` : `Not due in ${monthLabel(month)}`}</small></div><div class="emi-detail-grid"><article><span>STATUS</span><strong class="emi-status ${metrics.status}">${metrics.status}</strong></article><article><span>SCHEDULE</span><strong>${emi.mode === 'auto' ? 'Automatic monthly' : 'Manual control'}</strong></article><article><span>PAYMENT RANGE</span><strong>${esc(emi.startDate)} → ${esc(emi.endDate)}</strong></article><article><span>TOTAL PLAN VALUE</span><strong>${money(metrics.total)}</strong></article><article><span>INSTALLMENTS</span><strong>${metrics.installments} months</strong></article><article><span>REMAINING</span><strong>${metrics.remaining} months</strong></article></div><div class="emi-progress emi-detail-progress"><div><span>Plan progress</span><b>${metrics.elapsed} of ${metrics.installments} months</b></div><progress max="100" value="${progress}"></progress></div><div class="modal-actions emi-detail-actions"><button type="button" data-detail-action="delete" class="danger-link">Delete</button>${due ? `<button type="button" data-detail-action="paid" class="${paid ? 'emi-paid' : ''}">${paid ? '✓ Paid · Undo' : 'Mark as paid'}</button>` : ''}${emi.mode === 'manual' && metrics.status === 'active' ? `<button type="button" data-detail-action="month">${due ? 'Remove from this month' : '＋ Add to this month'}</button>` : ''}<button type="button" data-detail-action="edit" class="primary">Edit EMI</button></div>`;
+    detailDialog.dataset.emiId = emi.id;
+    detailDialog.showModal();
+  }
   render = function () {
     previousRender();
     $('emi-nav-count').textContent = store().length;
@@ -106,8 +127,8 @@ function pocketEmiExpenseForMonth(emi, month) {
     const overviewActive = tab === 'Overview';
     overview.hidden = !overviewActive;
     overview.style.display = overviewActive ? 'block' : 'none';
-    view.hidden = !active;
-    view.style.display = active ? 'block' : 'none';
+    host.hidden = !active;
+    host.classList.toggle('active', active);
     const month = $('month').value;
     if (overviewActive) {
       const overviewDue = store().filter(emi => pocketEmiDueInMonth(emi, month));
@@ -139,12 +160,10 @@ function pocketEmiExpenseForMonth(emi, month) {
     $('emi-empty').hidden = store().length > 0;
     const visible = plans.filter(plan => filter === 'all' || filter === 'due' && plan.due || filter === plan.metrics.status);
     $('emi-cards').innerHTML = visible.map(({ emi, metrics, due }) => {
-      const activeRange = metrics.status === 'active', progress = Math.round(metrics.elapsed / metrics.installments * 100);
-      const scheduleControl = emi.mode === 'manual' && activeRange ? `<button data-action="month" data-id="${esc(emi.id)}" class="emi-secondary">${due ? 'Remove from this month' : '＋ Add to this month'}</button>` : '';
-      const paidControl = due ? `<button data-action="paid" data-id="${esc(emi.id)}" class="${metrics.paid ? 'emi-paid' : 'primary'}">${metrics.paid ? '✓ Paid · Undo' : 'Mark as paid'}</button>` : '';
-      return `<article class="emi-card"><div class="emi-card-top"><div><span class="emi-status ${metrics.status}">${metrics.status}</span><h3>${esc(emi.name)}</h3><p>${esc(emi.notes || (emi.mode === 'auto' ? 'Automatically added every month' : 'You choose which months to include'))}</p></div><div class="emi-card-amount"><strong>${money(emi.amount)}</strong><span>per month</span></div></div><div class="emi-progress"><div><span>Plan progress</span><b>${metrics.elapsed} of ${metrics.installments} months</b></div><progress max="100" value="${progress}"></progress></div><div class="emi-details"><span><small>PAYMENT RANGE</small><b>${esc(emi.startDate)} → ${esc(emi.endDate)}</b></span><span><small>${due ? 'DUE THIS MONTH' : metrics.status === 'upcoming' ? 'STARTS' : 'PLAN TOTAL'}</small><b>${due ? dueDate(emi, month) : metrics.status === 'upcoming' ? monthLabel(emi.startDate.slice(0, 7)) : money(metrics.total)}</b></span><span><small>REMAINING MONTHS</small><b>${metrics.remaining}</b></span><span><small>SCHEDULE</small><b>${emi.mode === 'auto' ? 'Automatic monthly' : 'Manual control'}</b></span></div><div class="emi-card-actions">${paidControl}${scheduleControl}<button data-action="edit" data-id="${esc(emi.id)}">Edit</button><button data-action="delete" data-id="${esc(emi.id)}" class="danger-link">Delete</button></div></article>`;
+      const progress = Math.round(metrics.elapsed / metrics.installments * 100);
+      return `<button type="button" class="emi-card emi-plan-launcher" data-action="detail" data-id="${esc(emi.id)}" aria-label="View details for ${esc(emi.name)}"><div class="emi-card-top"><div><span class="emi-status ${metrics.status}">${metrics.status}</span><h3>${esc(emi.name)}</h3><p>${esc(emi.notes || (emi.mode === 'auto' ? 'Automatically added every month' : 'Manually controlled months'))}</p></div><div class="emi-card-amount"><strong>${money(emi.amount)}</strong><span>per month</span></div></div><div class="emi-progress"><div><span>${due ? `Due ${dueDate(emi, month)}` : metrics.status === 'upcoming' ? `Starts ${monthLabel(emi.startDate.slice(0, 7))}` : 'Plan completed'}</span><b>${metrics.elapsed} of ${metrics.installments} months</b></div><progress max="100" value="${progress}"></progress></div><div class="emi-launcher-footer"><span>${emi.mode === 'auto' ? 'Automatic monthly' : 'Manual schedule'}</span><strong>View details & edit →</strong></div></button>`;
     }).join('') || `<div class="emi-filter-empty">No EMI plans match this view for ${monthLabel(month)}.</div>`;
-    requestAnimationFrame(() => { if (tab === 'EMI') { view.hidden = false; view.style.display = 'block'; } });
+    requestAnimationFrame(() => { if (tab === 'EMI') host.removeAttribute('hidden'); });
   };
   $('add').onclick = () => tab === 'EMI' ? openEmi() : previousAdd();
   $('rows').onclick = event => {
@@ -152,9 +171,10 @@ function pocketEmiExpenseForMonth(emi, month) {
     if (!button) return previousRowsClick(event);
     event.preventDefault(); event.stopPropagation(); tab = 'EMI'; render();
     const id = button.dataset.id.split(':')[1];
-    document.querySelector(`.emi-card [data-id="${CSS.escape(id)}"]`)?.closest('.emi-card')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const plan = store().find(emi => emi.id === id);
+    if (plan) openEmiDetail(plan);
   };
-  $('overview-emi-open').onclick = () => { tab = 'EMI'; render(); view.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+  $('overview-emi-open').onclick = () => { tab = 'EMI'; render(); host.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   $('emi-empty-add').onclick = () => openEmi();
   $('emi-close').onclick = $('emi-cancel').onclick = () => dialog.close();
   ['emi-amount', 'emi-start', 'emi-end'].forEach(id => $(id).addEventListener('input', previewPlan));
@@ -179,6 +199,7 @@ function pocketEmiExpenseForMonth(emi, month) {
     if (!button) return;
     const emi = store().find(item => item.id === button.dataset.id);
     if (!emi) return;
+    if (button.dataset.action === 'detail') openEmiDetail(emi);
     if (button.dataset.action === 'edit') openEmi(emi);
     if (button.dataset.action === 'month') {
       const month = $('month').value;
@@ -196,8 +217,31 @@ function pocketEmiExpenseForMonth(emi, month) {
       if (persist()) toast('EMI schedule deleted');
     }
   };
-  navButton.addEventListener('click', event => { event.stopPropagation(); tab = 'EMI'; render(); requestAnimationFrame(() => { view.hidden = false; view.style.display = 'block'; }); });
-  new MutationObserver(() => { if (tab === 'EMI' && (view.hidden || view.style.display === 'none')) { view.hidden = false; view.style.display = 'block'; } }).observe(view, { attributes: true, attributeFilter: ['hidden', 'style'] });
+  detailDialog.onclick = event => {
+    const button = event.target.closest('[data-detail-action]');
+    if (!button) return;
+    const emi = store().find(item => item.id === detailDialog.dataset.emiId);
+    if (button.dataset.detailAction === 'close') detailDialog.close();
+    if (!emi) return;
+    if (button.dataset.detailAction === 'edit') { detailDialog.close(); openEmi(emi); }
+    if (button.dataset.detailAction === 'delete' && confirm('Delete the EMI schedule “' + emi.name + '”?')) {
+      data.emis = store().filter(item => item.id !== emi.id);
+      if (persist()) { detailDialog.close(); toast('EMI schedule deleted'); }
+    }
+    if (button.dataset.detailAction === 'paid') {
+      const month = $('month').value;
+      emi.paidMonths ||= [];
+      emi.paidMonths = emi.paidMonths.includes(month) ? emi.paidMonths.filter(value => value !== month) : emi.paidMonths.concat(month).sort();
+      if (persist()) { detailDialog.close(); toast(emi.paidMonths.includes(month) ? 'EMI marked paid for ' + month : 'Paid status removed for ' + month); }
+    }
+    if (button.dataset.detailAction === 'month') {
+      const month = $('month').value;
+      emi.manualMonths = emi.manualMonths.includes(month) ? emi.manualMonths.filter(value => value !== month) : emi.manualMonths.concat(month).sort();
+      if (persist()) { detailDialog.close(); toast(emi.manualMonths.includes(month) ? 'EMI added for ' + month : 'EMI removed from ' + month); }
+    }
+  };
+  navButton.addEventListener('click', event => { event.stopPropagation(); tab = 'EMI'; render(); requestAnimationFrame(() => host.removeAttribute('hidden')); });
+  new MutationObserver(() => { if (tab === 'EMI' && host.hidden) host.removeAttribute('hidden'); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
   render();
 })();
 
