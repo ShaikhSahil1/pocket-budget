@@ -85,3 +85,12 @@ Mini tools follows Leaves in navigation. Its currency converter fetches the keyl
 Mini tools includes named travel plans, free-form notes, and separate packing and task checklists. Add, edit, delete and complete checklist items; progress is shown per checklist. Plans use the same account-local data, Google Sheet auto-sync, full backup and restore as budgets and leaves. Old backups without travelPlans remain valid. Clearing a budget month does not delete travel plans. Each account has separate plans.
 
 Mini tools opens with two themed cards: Currency converter and Travel planner. Select a card to open only that tool, and use All mini tools to return. Currency rates load only after opening the converter. Returning from another navigation tab or changing accounts resets the tool selection to the cards.
+
+## Pay & Add Expense (UPI)
+
+Open **Pay & Add Expense** on a phone, enter or scan the UPI QR details, then choose how to pay:
+
+- **Android:** **Choose from my UPI apps** opens the standard `upi://pay` link, and Android shows every installed UPI app (unless a default UPI app is set). Specific app buttons open that app directly through an intent link; if it is not installed, Chrome returns to Monthly Pocket and asks you to pick another app.
+- **iPhone/iPad:** iOS cannot list installed apps, so pick Google Pay, PhonePe, Paytm, CRED, BHIM or **Other UPI app**. If the app does not open within a few seconds, a waiting panel lets you choose another app or review the payment.
+
+The last app you used is shown first. When you return, Monthly Pocket asks whether you completed the payment: **Yes, add expense** (amount and details can be corrected) or **I didn't pay · Don't add**. Expenses are marked user-confirmed and not bank-verified. Desktop browsers can fill the form but cannot launch UPI apps. App URL schemes are defined by each app and should be re-tested on real devices after app updates. Many UPI apps limit link or QR payments to personal UPI IDs; merchant QR codes work most reliably.

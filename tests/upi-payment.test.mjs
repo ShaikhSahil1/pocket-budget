@@ -46,3 +46,36 @@ test('creates an edited, explicitly user-confirmed expense record', () => {
   assert.equal(expense.refundable, false);
   assert.throws(() => context.pocketUpiExpense({}, { id: 'bad', name: '', amount: 0, date: 'bad', category: 'Other', details: '' }));
 });
+
+test('detects iPhone, iPad, Android and desktop browsers', () => {
+  assert.equal(context.pocketUpiPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 'iPhone', 5), 'ios');
+  assert.equal(context.pocketUpiPlatform('Mozilla/5.0 (Macintosh)', 'MacIntel', 5), 'ios');
+  assert.equal(context.pocketUpiPlatform('Mozilla/5.0 (Linux; Android 15; Pixel 9)', 'Linux armv8l', 5), 'android');
+  assert.equal(context.pocketUpiPlatform('Mozilla/5.0 (Windows NT 10.0)', 'Win32', 0), 'other');
+});
+
+test('lists popular UPI apps with an iOS scheme and Android package', () => {
+  const apps = context.pocketUpiApps();
+  assert.equal(apps.map(app => app.id).join(','), ['gpay', 'phonepe', 'paytm', 'cred', 'bhim'].join(','));
+  for (const app of apps) {
+    assert.match(app.ios, /^[a-z]+:\/\/.+\?$/);
+    assert.match(app.android, /^[a-z0-9_]+(\.[a-z0-9_]+)+$/i);
+  }
+});
+
+test('builds iOS app links and Android intents for a chosen app', () => {
+  const draft = { upiId: 'cafe@okaxis', payeeName: 'Corner Cafe', amount: 120, note: 'Tea', reference: 'MP9' };
+  assert.ok(context.pocketBuildUpiPaymentUrl(draft, 'phonepe', 'ios').startsWith('phonepe://pay?pa=cafe%40okaxis'));
+  assert.ok(context.pocketBuildUpiPaymentUrl(draft, 'paytm', 'ios').startsWith('paytmmp://pay?'));
+  const intent = context.pocketBuildUpiPaymentUrl(draft, 'phonepe', 'android', 'https://pocketmonthlybudget.netlify.app/app.html#upi-app-missing');
+  assert.ok(intent.startsWith('intent://pay?pa=cafe%40okaxis'));
+  assert.match(intent, /#Intent;scheme=upi;package=com\.phonepe\.app;S\.browser_fallback_url=https%3A%2F%2Fpocketmonthlybudget\.netlify\.app%2Fapp\.html%23upi-app-missing;end$/);
+  assert.equal(context.pocketBuildUpiPaymentUrl(draft, 'gpay', 'android', 'javascript:alert(1)').includes('browser_fallback_url'), false);
+  assert.ok(context.pocketBuildUpiPaymentUrl(draft, 'generic', 'android').startsWith('upi://pay?'));
+  assert.throws(() => context.pocketBuildUpiPaymentUrl(draft, 'unknown-app', 'ios'));
+});
+
+test('records which app the user chose in the confirmed expense', () => {
+  const expense = context.pocketUpiExpense({ upiId: 'cafe@okaxis', appLabel: 'PhonePe' }, { id: 'e2', name: 'Tea', amount: 120, date: '2026-10-18', category: 'Personal Buying', details: '' });
+  assert.match(expense.details, /via PhonePe/);
+});
