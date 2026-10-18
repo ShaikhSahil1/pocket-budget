@@ -4,7 +4,7 @@ function validatePocketEmis(emis) {
   const validDate = value => typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
   const ids = new Set();
   for (const emi of emis) {
-    if (!emi || typeof emi.id !== 'string' || !emi.id || ids.has(emi.id) || typeof emi.name !== 'string' || !emi.name.trim() || emi.name.length > 100 || !Number.isFinite(emi.amount) || emi.amount <= 0 || !validDate(emi.startDate) || !validDate(emi.endDate) || emi.endDate < emi.startDate || !['auto', 'manual'].includes(emi.mode) || !Array.isArray(emi.manualMonths) || emi.manualMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) || typeof emi.notes !== 'string' || emi.notes.length > 200) throw Error('Invalid EMI record.');
+    if (!emi || typeof emi.id !== 'string' || !emi.id || ids.has(emi.id) || typeof emi.name !== 'string' || !emi.name.trim() || emi.name.length > 100 || !Number.isFinite(emi.amount) || emi.amount <= 0 || !validDate(emi.startDate) || !validDate(emi.endDate) || emi.endDate < emi.startDate || !['auto', 'manual'].includes(emi.mode) || !Array.isArray(emi.manualMonths) || emi.manualMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) || (emi.paidMonths !== undefined && (!Array.isArray(emi.paidMonths) || emi.paidMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)))) || typeof emi.notes !== 'string' || emi.notes.length > 200) throw Error('Invalid EMI record.');
     ids.add(emi.id);
   }
 }
@@ -13,6 +13,15 @@ function pocketEmiDueInMonth(emi, month) {
   if (!emi || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return false;
   const starts = emi.startDate.slice(0, 7), ends = emi.endDate.slice(0, 7);
   return month >= starts && month <= ends && (emi.mode === 'auto' || emi.manualMonths.includes(month));
+}
+
+function pocketEmiPlanMetrics(emi, selectedMonth) {
+  const monthIndex = month => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1;
+  const start = emi.startDate.slice(0, 7), end = emi.endDate.slice(0, 7);
+  const installments = monthIndex(end) - monthIndex(start) + 1;
+  const elapsed = Math.max(0, Math.min(installments, monthIndex(selectedMonth) - monthIndex(start) + 1));
+  const status = selectedMonth < start ? 'upcoming' : selectedMonth > end ? 'completed' : 'active';
+  return { installments, elapsed, remaining: Math.max(0, installments - elapsed), total: Math.round((installments * emi.amount + Number.EPSILON) * 100) / 100, status, paid: (emi.paidMonths || []).includes(selectedMonth) };
 }
 
 (() => {
@@ -25,15 +34,28 @@ function pocketEmiDueInMonth(emi, month) {
   const view = document.createElement('div');
   view.id = 'emi-view';
   view.hidden = true;
-  view.innerHTML = `<div class="emi-hero"><div><div class="eyebrow">RECURRING PAYMENTS</div><h3>Your EMIs, month by month.</h3><p>Automatic schedules appear every month between their start and end dates. Manual schedules appear only when you add the selected month.</p></div><div class="emi-total"><small>DUE THIS MONTH</small><strong id="emi-month-total">₹0</strong><span id="emi-month-count">0 payments</span></div></div><article class="panel transactions"><div class="panel-heading"><div><h3>EMI schedule</h3><span id="emi-schedule-label"></span></div></div><div class="table-wrap"><table><thead><tr><th>EMI</th><th>SCHEDULE</th><th>FROM → TO</th><th>THIS MONTH</th><th class="right">AMOUNT</th><th></th></tr></thead><tbody id="emi-rows"></tbody></table></div><p id="emi-empty" class="leave-empty">No EMI plans yet. Choose Add EMI to create an automatic monthly schedule or a plan you control manually.</p></article>`;
+  view.innerHTML = `<div class="emi-hero"><div><div class="eyebrow">EMI CONTROL CENTRE</div><h3>Know what is due, paid and remaining.</h3><p>Automatic plans appear every month in their date range. Manual plans appear only when you choose to add them for that month.</p><div class="emi-legend"><span><i class="active"></i>Active</span><span><i class="upcoming"></i>Upcoming</span><span><i class="completed"></i>Completed</span></div></div><div class="emi-total"><small>REMAINING THIS MONTH</small><strong id="emi-month-remaining">₹0</strong><span id="emi-month-count">0 payments due</span></div></div><div class="emi-summary"><article><span>Total due</span><strong id="emi-month-total">₹0</strong><small id="emi-due-count">0 scheduled</small></article><article><span>Paid</span><strong id="emi-month-paid">₹0</strong><small id="emi-paid-count">0 marked paid</small></article><article><span>Active plans</span><strong id="emi-active-count">0</strong><small id="emi-plan-count">0 plans in total</small></article><article><span>Total monthly commitment</span><strong id="emi-commitment">₹0</strong><small>All automatic active plans</small></article></div><article class="panel emi-plans"><div class="panel-heading emi-panel-heading"><div><h3>Your EMI plans</h3><span id="emi-schedule-label"></span></div><div class="emi-filters" id="emi-filters"><button class="active" data-filter="all">All</button><button data-filter="due">Due this month</button><button data-filter="upcoming">Upcoming</button><button data-filter="completed">Completed</button></div></div><div id="emi-cards" class="emi-cards"></div><div id="emi-empty" class="emi-empty"><div>▦</div><h3>No EMI plan added yet</h3><p>Add your first EMI once. Monthly Pocket will build the schedule and show what is due each month.</p><button class="primary" id="emi-empty-add">＋ Add your first EMI</button></div></article>`;
   document.querySelector('.stats').before(view);
 
   const dialog = document.createElement('dialog');
-  dialog.innerHTML = `<form id="emi-form"><div class="modal-heading"><h2 id="emi-modal-title">Add EMI</h2><button type="button" id="emi-close" aria-label="Close">×</button></div><input id="emi-id" type="hidden"><label>EMI name<input id="emi-name" maxlength="100" required placeholder="e.g. Home loan, phone, car"></label><div class="form-grid"><label>Amount per month<input id="emi-amount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label><label>Schedule<select id="emi-mode"><option value="auto">Auto-add every month</option><option value="manual">Add months manually</option></select></label><label>From date<input id="emi-start" type="date" required></label><label>To date<input id="emi-end" type="date" required></label></div><label>Notes<input id="emi-notes" maxlength="200" placeholder="Optional account or payment details"></label><p>Auto-add creates a due item for every month in the date range. Manual mode lets you include or remove the month currently selected in Monthly Pocket.</p><div class="modal-actions"><button type="button" id="emi-cancel">Cancel</button><button class="primary">Save EMI</button></div></form>`;
+  dialog.className = 'emi-dialog';
+  dialog.innerHTML = `<form id="emi-form"><div class="modal-heading"><div><span class="eyebrow">NEW PAYMENT PLAN</span><h2 id="emi-modal-title">Add EMI</h2></div><button type="button" id="emi-close" aria-label="Close">×</button></div><input id="emi-id" type="hidden"><div class="emi-form-intro"><b>One setup. A clear month-by-month view.</b><span>Enter the monthly amount and full date range. The day in “From date” becomes your monthly due day.</span></div><label>What is this EMI for?<input id="emi-name" maxlength="100" required placeholder="e.g. Home loan, car, phone"></label><div class="form-grid"><label>Monthly payment<input id="emi-amount" type="number" min="0.01" step="0.01" required placeholder="₹ 0.00"></label><label>How should it appear?<select id="emi-mode"><option value="auto">Automatically every month</option><option value="manual">Only when I add the month</option></select></label><label>First payment date<input id="emi-start" type="date" required></label><label>Last payment date<input id="emi-end" type="date" required></label></div><div class="emi-form-preview" id="emi-form-preview">Enter an amount and dates to preview the plan.</div><label>Optional notes<input id="emi-notes" maxlength="200" placeholder="e.g. Bank name, loan reference"></label><div class="modal-actions"><button type="button" id="emi-cancel">Cancel</button><button class="primary">Save EMI plan</button></div></form>`;
   document.body.append(dialog);
 
   const previousRender = render;
   const previousAdd = $('add').onclick;
+  let filter = 'all';
+  const monthLabel = month => new Date(month + '-01T12:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const dueDate = (emi, month) => {
+    const day = Math.min(Number(emi.startDate.slice(8, 10)), new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate());
+    return new Date(month + '-' + String(day).padStart(2, '0') + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+  function previewPlan() {
+    const amount = Number($('emi-amount').value), start = $('emi-start').value, end = $('emi-end').value;
+    if (!amount || !start || !end || end < start) { $('emi-form-preview').textContent = end && start && end < start ? 'The last payment date must be after the first payment date.' : 'Enter an amount and dates to preview the plan.'; return; }
+    const metrics = pocketEmiPlanMetrics({ amount, startDate: start, endDate: end, paidMonths: [] }, start.slice(0, 7));
+    $('emi-form-preview').innerHTML = `<strong>${metrics.installments} monthly payments</strong><span>${money(metrics.total)} total · due around day ${Number(start.slice(8, 10))} each month</span>`;
+  }
   function openEmi(emi) {
     $('emi-form').reset();
     $('emi-id').value = emi?.id || '';
@@ -44,12 +66,14 @@ function pocketEmiDueInMonth(emi, month) {
     $('emi-start').value = emi?.startDate || $('month').value + '-01';
     $('emi-end').value = emi?.endDate || $('month').value + '-28';
     $('emi-notes').value = emi?.notes || '';
+    previewPlan();
     dialog.showModal();
   }
   render = function () {
     previousRender();
     const active = tab === 'EMI';
     view.hidden = !active;
+    view.style.display = active ? 'block' : 'none';
     if (!active) return;
     document.querySelectorAll('section > .stats, section > .middle, section > .transactions, #leaves-view').forEach(element => element.hidden = true);
     ['currency', 'export', 'balance'].forEach(id => $(id).hidden = true);
@@ -57,29 +81,50 @@ function pocketEmiDueInMonth(emi, month) {
     $('title').textContent = 'Your EMIs, clearly scheduled.';
     $('subtitle').textContent = 'Choose automatic monthly entries or stay in control with manual months.';
     const month = $('month').value;
-    const due = store().filter(emi => pocketEmiDueInMonth(emi, month));
-    $('emi-month-total').textContent = money(due.reduce((sum, emi) => sum + emi.amount, 0));
-    $('emi-month-count').textContent = due.length + (due.length === 1 ? ' payment' : ' payments');
-    $('emi-schedule-label').textContent = month + ' · ' + store().length + (store().length === 1 ? ' plan' : ' plans');
+    const plans = store().map(emi => ({ emi, metrics: pocketEmiPlanMetrics(emi, month), due: pocketEmiDueInMonth(emi, month) }));
+    const due = plans.filter(plan => plan.due), paid = due.filter(plan => plan.metrics.paid), totalDue = due.reduce((sum, plan) => sum + plan.emi.amount, 0), paidTotal = paid.reduce((sum, plan) => sum + plan.emi.amount, 0);
+    const activePlans = plans.filter(plan => plan.metrics.status === 'active');
+    $('emi-month-total').textContent = money(totalDue);
+    $('emi-month-paid').textContent = money(paidTotal);
+    $('emi-month-remaining').textContent = money(totalDue - paidTotal);
+    $('emi-month-count').textContent = (due.length - paid.length) + (due.length - paid.length === 1 ? ' payment due' : ' payments due');
+    $('emi-due-count').textContent = due.length + ' scheduled';
+    $('emi-paid-count').textContent = paid.length + ' marked paid';
+    $('emi-active-count').textContent = activePlans.length;
+    $('emi-plan-count').textContent = store().length + (store().length === 1 ? ' plan in total' : ' plans in total');
+    $('emi-commitment').textContent = money(activePlans.filter(plan => plan.emi.mode === 'auto').reduce((sum, plan) => sum + plan.emi.amount, 0));
+    $('emi-schedule-label').textContent = monthLabel(month) + ' · click any month above to review its schedule';
     $('emi-empty').hidden = store().length > 0;
-    $('emi-rows').innerHTML = store().slice().sort((a, b) => a.startDate.localeCompare(b.startDate)).map(emi => {
-      const included = pocketEmiDueInMonth(emi, month), activeRange = month >= emi.startDate.slice(0, 7) && month <= emi.endDate.slice(0, 7);
-      const control = emi.mode === 'manual' && activeRange ? `<button class="status ${included ? '' : 'pending'}" data-action="month" data-id="${esc(emi.id)}">${included ? '✓ Added' : '＋ Add month'}</button>` : `<span class="status ${included ? '' : 'pending'}">${included ? '✓ Auto-added' : 'Outside range'}</span>`;
-      return `<tr><td><strong>${esc(emi.name)}</strong><small>${esc(emi.notes || '—')}</small></td><td><span class="badge">${emi.mode === 'auto' ? 'Auto monthly' : 'Manual'}</span></td><td>${esc(emi.startDate)} → ${esc(emi.endDate)}</td><td>${control}</td><td class="right"><strong>${money(emi.amount)}</strong></td><td class="row-actions"><button data-action="edit" data-id="${esc(emi.id)}">Edit</button><button data-action="delete" data-id="${esc(emi.id)}">×</button></td></tr>`;
-    }).join('');
+    const visible = plans.filter(plan => filter === 'all' || filter === 'due' && plan.due || filter === plan.metrics.status);
+    $('emi-cards').innerHTML = visible.map(({ emi, metrics, due }) => {
+      const activeRange = metrics.status === 'active', progress = Math.round(metrics.elapsed / metrics.installments * 100);
+      const scheduleControl = emi.mode === 'manual' && activeRange ? `<button data-action="month" data-id="${esc(emi.id)}" class="emi-secondary">${due ? 'Remove from this month' : '＋ Add to this month'}</button>` : '';
+      const paidControl = due ? `<button data-action="paid" data-id="${esc(emi.id)}" class="${metrics.paid ? 'emi-paid' : 'primary'}">${metrics.paid ? '✓ Paid · Undo' : 'Mark as paid'}</button>` : '';
+      return `<article class="emi-card"><div class="emi-card-top"><div><span class="emi-status ${metrics.status}">${metrics.status}</span><h3>${esc(emi.name)}</h3><p>${esc(emi.notes || (emi.mode === 'auto' ? 'Automatically added every month' : 'You choose which months to include'))}</p></div><div class="emi-card-amount"><strong>${money(emi.amount)}</strong><span>per month</span></div></div><div class="emi-progress"><div><span>Plan progress</span><b>${metrics.elapsed} of ${metrics.installments} months</b></div><progress max="100" value="${progress}"></progress></div><div class="emi-details"><span><small>PAYMENT RANGE</small><b>${esc(emi.startDate)} → ${esc(emi.endDate)}</b></span><span><small>${due ? 'DUE THIS MONTH' : metrics.status === 'upcoming' ? 'STARTS' : 'PLAN TOTAL'}</small><b>${due ? dueDate(emi, month) : metrics.status === 'upcoming' ? monthLabel(emi.startDate.slice(0, 7)) : money(metrics.total)}</b></span><span><small>REMAINING MONTHS</small><b>${metrics.remaining}</b></span><span><small>SCHEDULE</small><b>${emi.mode === 'auto' ? 'Automatic monthly' : 'Manual control'}</b></span></div><div class="emi-card-actions">${paidControl}${scheduleControl}<button data-action="edit" data-id="${esc(emi.id)}">Edit</button><button data-action="delete" data-id="${esc(emi.id)}" class="danger-link">Delete</button></div></article>`;
+    }).join('') || `<div class="emi-filter-empty">No EMI plans match this view for ${monthLabel(month)}.</div>`;
+    requestAnimationFrame(() => { if (tab === 'EMI') { view.hidden = false; view.style.display = 'block'; } });
   };
   $('add').onclick = () => tab === 'EMI' ? openEmi() : previousAdd();
+  $('emi-empty-add').onclick = () => openEmi();
   $('emi-close').onclick = $('emi-cancel').onclick = () => dialog.close();
+  ['emi-amount', 'emi-start', 'emi-end'].forEach(id => $(id).addEventListener('input', previewPlan));
+  $('emi-filters').onclick = event => {
+    const button = event.target.closest('button[data-filter]');
+    if (!button) return;
+    filter = button.dataset.filter;
+    document.querySelectorAll('#emi-filters button').forEach(item => item.classList.toggle('active', item === button));
+    render();
+  };
   $('emi-form').onsubmit = event => {
     event.preventDefault();
     const existing = store().find(emi => emi.id === $('emi-id').value);
-    const emi = { id: $('emi-id').value || crypto.randomUUID(), name: $('emi-name').value.trim(), amount: Number($('emi-amount').value), mode: $('emi-mode').value, startDate: $('emi-start').value, endDate: $('emi-end').value, notes: $('emi-notes').value.trim(), manualMonths: existing?.manualMonths || [] };
+    const emi = { id: $('emi-id').value || crypto.randomUUID(), name: $('emi-name').value.trim(), amount: Number($('emi-amount').value), mode: $('emi-mode').value, startDate: $('emi-start').value, endDate: $('emi-end').value, notes: $('emi-notes').value.trim(), manualMonths: existing?.manualMonths || [], paidMonths: existing?.paidMonths || [] };
     const next = store().filter(item => item.id !== emi.id).concat(emi);
     try { validatePocketEmis(next); } catch (error) { toast(error.message); return; }
     data.emis = next;
     if (persist()) { dialog.close(); toast('EMI schedule saved'); }
   };
-  $('emi-rows').onclick = event => {
+  $('emi-cards').onclick = event => {
     const button = event.target.closest('button');
     if (!button) return;
     const emi = store().find(item => item.id === button.dataset.id);
@@ -89,6 +134,12 @@ function pocketEmiDueInMonth(emi, month) {
       const month = $('month').value;
       emi.manualMonths = emi.manualMonths.includes(month) ? emi.manualMonths.filter(value => value !== month) : emi.manualMonths.concat(month).sort();
       if (persist()) toast(emi.manualMonths.includes(month) ? 'EMI added for ' + month : 'EMI removed from ' + month);
+    }
+    if (button.dataset.action === 'paid') {
+      const month = $('month').value;
+      emi.paidMonths ||= [];
+      emi.paidMonths = emi.paidMonths.includes(month) ? emi.paidMonths.filter(value => value !== month) : emi.paidMonths.concat(month).sort();
+      if (persist()) toast(emi.paidMonths.includes(month) ? 'EMI marked paid for ' + month : 'Paid status removed for ' + month);
     }
     if (button.dataset.action === 'delete' && confirm('Delete the EMI schedule “' + emi.name + '”?')) {
       data.emis = store().filter(item => item.id !== emi.id);

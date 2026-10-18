@@ -7,7 +7,7 @@ const source = fs.readFileSync('emi.js', 'utf8').split('(() => {')[0];
 const context = vm.createContext({ Date, Number, Error, Set, Array });
 vm.runInContext(source, context);
 
-const plan = (changes = {}) => ({ id: 'emi-1', name: 'Home loan', amount: 12500, startDate: '2026-10-15', endDate: '2027-03-15', mode: 'auto', manualMonths: [], notes: '', ...changes });
+const plan = (changes = {}) => ({ id: 'emi-1', name: 'Home loan', amount: 12500, startDate: '2026-10-15', endDate: '2027-03-15', mode: 'auto', manualMonths: [], paidMonths: [], notes: '', ...changes });
 
 test('automatic EMI is due for every month inside the date range', () => {
   assert.equal(context.pocketEmiDueInMonth(plan(), '2026-09'), false);
@@ -27,4 +27,22 @@ test('EMI validation accepts good records and rejects invalid date ranges', () =
   assert.doesNotThrow(() => context.validatePocketEmis(undefined));
   assert.throws(() => context.validatePocketEmis([plan({ endDate: '2026-01-01' })]));
   assert.throws(() => context.validatePocketEmis([plan({ amount: 0 })]));
+});
+
+test('plan metrics explain installments, total, status and paid state', () => {
+  const metrics = context.pocketEmiPlanMetrics(plan({ paidMonths: ['2026-11'] }), '2026-11');
+  assert.equal(metrics.installments, 6);
+  assert.equal(metrics.elapsed, 2);
+  assert.equal(metrics.remaining, 4);
+  assert.equal(metrics.total, 75000);
+  assert.equal(metrics.status, 'active');
+  assert.equal(metrics.paid, true);
+  assert.equal(context.pocketEmiPlanMetrics(plan(), '2026-09').status, 'upcoming');
+  assert.equal(context.pocketEmiPlanMetrics(plan(), '2027-04').status, 'completed');
+});
+
+test('old EMI records without paid months remain valid', () => {
+  const legacy = plan(); delete legacy.paidMonths;
+  assert.doesNotThrow(() => context.validatePocketEmis([legacy]));
+  assert.throws(() => context.validatePocketEmis([plan({ paidMonths: ['wrong'] })]));
 });
