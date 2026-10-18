@@ -15,11 +15,22 @@ function validatePocketTravelPlans(plans) {
     }
   }
 }
+function validatePocketEmis(emis) {
+  if (emis === undefined) return;
+  if (!Array.isArray(emis) || emis.length > 300) throw Error('Invalid EMI backup.');
+  const validDate = value => typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+  const ids = new Set();
+  for (const emi of emis) {
+    if (!emi || typeof emi.id !== 'string' || !emi.id || ids.has(emi.id) || typeof emi.name !== 'string' || !emi.name.trim() || emi.name.length > 100 || !Number.isFinite(emi.amount) || emi.amount <= 0 || !validDate(emi.startDate) || !validDate(emi.endDate) || emi.endDate < emi.startDate || !['auto', 'manual'].includes(emi.mode) || !Array.isArray(emi.manualMonths) || emi.manualMonths.some(month => !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) || typeof emi.notes !== 'string' || emi.notes.length > 200) throw Error('Invalid EMI record.');
+    ids.add(emi.id);
+  }
+}
 function validatePocketBackup(d){
     if(!d||!isPocketCurrency(d.currency)||!d.balances||Array.isArray(d.balances)||typeof d.balances!=='object'||!Array.isArray(d.expenses))throw Error('Invalid Monthly Pocket backup.');
     for(const [m,n] of Object.entries(d.balances))if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(m)||!Number.isFinite(n)||n<0)throw Error('Invalid monthly balance.');
     const ids=new Set();for(const e of d.expenses){if(!e||typeof e.id!=='string'||ids.has(e.id)||typeof e.name!=='string'||typeof e.details!=='string'||!cats.includes(e.category)||!Number.isFinite(e.amount)||e.amount<=0||!/^\d{4}-(0[1-9]|1[0-2])-\d{2}$/.test(e.date)||Number.isNaN(Date.parse(e.date))||typeof e.refundable!=='boolean'||typeof e.received!=='boolean')throw Error('Invalid expense in backup.');ids.add(e.id);}
     validateLeaves(d.leaves);
     validatePocketTravelPlans(d.travelPlans);
+    validatePocketEmis(d.emis);
     return d;
   }

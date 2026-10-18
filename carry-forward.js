@@ -3,11 +3,12 @@
 function pocketMonthTotals(source, selectedMonth) {
   const validMonth = month => /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
   if (!validMonth(selectedMonth)) throw Error('Choose a valid month.');
-  const types = ['casual', 'medical', 'compoff'];
-  const zero = () => ({ casual: 0, medical: 0, compoff: 0 });
+  const types = ['casual', 'medical', 'compoff', 'festival'];
+  const zero = () => ({ casual: 0, medical: 0, compoff: 0, festival: 0 });
   const moneyRound = value => Math.round((value + Number.EPSILON) * 100) / 100;
   const expenses = {}, leaves = {};
   const allowances = source.leaves?.allowances || {};
+  const leaveSettings = source.leaves?.settings;
   for (const entry of source.expenses) {
     const month = entry.date.slice(0, 7);
     expenses[month] = moneyRound((expenses[month] || 0) + (entry.refundable && entry.received ? 0 : entry.amount));
@@ -23,10 +24,14 @@ function pocketMonthTotals(source, selectedMonth) {
   let carried = 0, leaveCarried = zero(), allowance = zero(), result;
   for (let i = index(months[0] || selectedMonth); i <= index(selectedMonth); i++) {
     const month = monthName(i);
+    const legacyCasual = !leaveSettings && Object.keys(allowances).length;
+    const casualAuto = leaveSettings?.casualMode === 'auto' || (!leaveSettings && !legacyCasual);
+    const casualStart = leaveSettings?.casualAutoStart || month;
     allowance = {
-      casual: allowances[month]?.casual ?? allowance.casual,
+      casual: casualAuto ? (month >= casualStart ? leaveSettings?.casualMonthly ?? 1.5 : 0) : (leaveSettings ? allowances[month]?.casual ?? 0 : allowances[month]?.casual ?? allowance.casual),
       medical: allowances[month]?.medical ?? 0,
       compoff: allowances[month]?.compoff ?? 0,
+      festival: allowances[month]?.festival ?? 0,
     };
     const base = source.balances[month] || 0;
     const starting = moneyRound(base + carried);

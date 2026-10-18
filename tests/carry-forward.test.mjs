@@ -59,3 +59,20 @@ test('manual medical and comp-off credits carry without growing in skipped month
   assert.equal(totals(data,'2027-02').allowance.medical,0);
   assert.equal(totals(data,'2027-02').allowance.compoff,0);
 });
+
+test('casual leave can auto-credit 1.5 monthly while festival leave is manually credited', () => {
+  const data = source();
+  data.leaves = { settings: { casualMode: 'auto', casualMonthly: 1.5, casualAutoStart: '2026-10' }, allowances: { '2026-10': { casual: 0, medical: 0, compoff: 0, festival: 2 } }, entries: [{ date: '2026-10-20', type: 'festival', days: 1 }] };
+  assert.equal(totals(data, '2026-10').leaveRemaining.casual, 1.5);
+  assert.equal(totals(data, '2026-10').leaveRemaining.festival, 1);
+  assert.equal(totals(data, '2026-11').leaveTotal.casual, 3);
+  assert.equal(totals(data, '2026-11').leaveTotal.festival, 1);
+});
+
+test('manual casual mode only credits months chosen by the user', () => {
+  const data = source();
+  data.leaves = { settings: { casualMode: 'manual', casualMonthly: 1.5 }, allowances: { '2026-10': { casual: 1.5, medical: 0, compoff: 0, festival: 0 } }, entries: [] };
+  assert.equal(totals(data, '2026-10').leaveTotal.casual, 1.5);
+  assert.equal(totals(data, '2026-11').allowance.casual, 0);
+  assert.equal(totals(data, '2026-11').leaveTotal.casual, 1.5);
+});
