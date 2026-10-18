@@ -70,7 +70,7 @@
       let verificationStarted = false;
       const checkout = new Razorpay({
         key: order.keyId, order_id: order.orderId, amount: order.amount, currency: order.currency,
-        name: 'Monthly Pocket', description: 'Lifetime access · launch offer 50% off', prefill: { email: order.email },
+        name: 'Monthly Pocket by Minisoftwareshop', description: 'Lifetime access · launch offer 50% off', prefill: { email: order.email },
         readonly: { email: true }, theme: { color: '#234f42' }, retry: { enabled: true },
         handler: async result => {
           verificationStarted = true;
