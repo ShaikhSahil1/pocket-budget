@@ -7,6 +7,7 @@ function pocketMonthTotals(source, selectedMonth) {
   const zero = () => ({ casual: 0, medical: 0, compoff: 0, festival: 0 });
   const moneyRound = value => Math.round((value + Number.EPSILON) * 100) / 100;
   const expenses = {}, leaves = {};
+  const emis = source.emis || [];
   const allowances = source.leaves?.allowances || {};
   const leaveSettings = source.leaves?.settings;
   for (const entry of source.expenses) {
@@ -17,7 +18,8 @@ function pocketMonthTotals(source, selectedMonth) {
     const month = entry.date.slice(0, 7);
     (leaves[month] ||= zero())[entry.type] += entry.days;
   }
-  const months = [...Object.keys(source.balances), ...Object.keys(expenses), ...Object.keys(allowances), ...Object.keys(leaves)]
+  const emiMonths = emis.flatMap(emi => emi.mode === 'auto' ? [emi.startDate?.slice(0, 7)] : emi.manualMonths || []);
+  const months = [...Object.keys(source.balances), ...Object.keys(expenses), ...Object.keys(allowances), ...Object.keys(leaves), ...emiMonths]
     .filter(month => validMonth(month) && month <= selectedMonth).sort();
   const index = month => Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1;
   const monthName = number => String(Math.floor(number / 12)).padStart(4, '0') + '-' + String(number % 12 + 1).padStart(2, '0');
@@ -35,13 +37,17 @@ function pocketMonthTotals(source, selectedMonth) {
     };
     const base = source.balances[month] || 0;
     const starting = moneyRound(base + carried);
-    const available = moneyRound(starting - (expenses[month] || 0));
+    const emiSpent = moneyRound(emis.filter(emi => {
+      const start = emi.startDate?.slice(0, 7), end = emi.endDate?.slice(0, 7);
+      return month >= start && month <= end && (emi.mode === 'auto' || (emi.manualMonths || []).includes(month));
+    }).reduce((sum, emi) => sum + (Number(emi.amount) || 0), 0));
+    const available = moneyRound(starting - (expenses[month] || 0) - emiSpent);
     const leaveTotal = zero(), leaveRemaining = zero(), used = leaves[month] || zero();
     for (const type of types) {
       leaveTotal[type] = allowance[type] + leaveCarried[type];
       leaveRemaining[type] = leaveTotal[type] - used[type];
     }
-    result = { base, carried, starting, available, allowance: { ...allowance }, leaveCarried: { ...leaveCarried }, leaveTotal, leaveRemaining };
+    result = { base, carried, starting, available, emiSpent, allowance: { ...allowance }, leaveCarried: { ...leaveCarried }, leaveTotal, leaveRemaining };
     carried = Math.max(0, available);
     for (const type of types) leaveCarried[type] = Math.max(0, leaveRemaining[type]);
   }

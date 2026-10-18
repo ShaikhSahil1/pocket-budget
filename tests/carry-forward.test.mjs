@@ -76,3 +76,14 @@ test('manual casual mode only credits months chosen by the user', () => {
   assert.equal(totals(data, '2026-11').allowance.casual, 0);
   assert.equal(totals(data, '2026-11').leaveTotal.casual, 1.5);
 });
+
+test('scheduled EMIs reduce monthly balance and carry forward without stored expense duplicates', () => {
+  const data = source();
+  data.balances = { '2026-10': 50000 };
+  data.emis = [{ id: 'emi-1', name: 'Car', amount: 10000, startDate: '2026-10-05', endDate: '2026-12-05', mode: 'auto', manualMonths: [], notes: '' }];
+  assert.equal(totals(data, '2026-10').emiSpent, 10000);
+  assert.equal(totals(data, '2026-10').available, 40000);
+  assert.equal(totals(data, '2026-11').carried, 40000);
+  assert.equal(totals(data, '2026-11').available, 30000);
+  assert.equal(data.expenses.length, 0);
+});

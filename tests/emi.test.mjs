@@ -46,3 +46,13 @@ test('old EMI records without paid months remain valid', () => {
   assert.doesNotThrow(() => context.validatePocketEmis([legacy]));
   assert.throws(() => context.validatePocketEmis([plan({ paidMonths: ['wrong'] })]));
 });
+
+test('due EMI becomes a Personal Buying expense with a stable monthly ID', () => {
+  const expense = context.pocketEmiExpenseForMonth(plan(), '2026-11');
+  assert.equal(expense.id, 'emi:emi-1:2026-11');
+  assert.equal(expense.name, 'Home loan EMI');
+  assert.equal(expense.category, 'Personal Buying');
+  assert.equal(expense.amount, 12500);
+  assert.equal(expense.date, '2026-11-15');
+  assert.equal(context.pocketEmiExpenseForMonth(plan(), '2027-04'), null);
+});
