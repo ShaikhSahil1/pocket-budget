@@ -96,7 +96,9 @@ Mini tools opens with two themed cards: Currency converter and Travel planner. S
 
 ## Pay & Add Expense (UPI)
 
-Open **Pay & Add Expense** on a phone, enter or scan the UPI QR details, then choose how to pay:
+Open **Pay & Add Expense** on a phone. The quickest way is **Open my UPI app**: tap Google Pay, PhonePe, Paytm, CRED or BHIM and the app opens with nothing filled in, so you scan or pay inside it as usual. When you come back, Monthly Pocket asks whether you paid and lets you enter the amount and what it was for. A website cannot open Android’s list of all UPI apps without a payee, so this option always opens one specific app; if it does not open, choose another.
+
+To pre-fill the payment instead, open **Or fill in the payment first (UPI ID or QR)**, enter or scan the details, then choose how to pay:
 
 - **Android:** **Choose from my UPI apps** opens the standard `upi://pay` link, and Android shows every installed UPI app (unless a default UPI app is set). Specific app buttons open that app directly through an intent link; if it is not installed, Chrome returns to Monthly Pocket and asks you to pick another app.
 - **iPhone/iPad:** iOS cannot list installed apps, so pick Google Pay, PhonePe, Paytm, CRED, BHIM or **Other UPI app**. If the app does not open within a few seconds, a waiting panel lets you choose another app or review the payment.

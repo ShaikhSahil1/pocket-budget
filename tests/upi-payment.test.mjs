@@ -85,3 +85,20 @@ test('records which app the user chose in the confirmed expense', () => {
   const expense = context.pocketUpiExpense({ upiId: 'cafe@okaxis', appLabel: 'PhonePe' }, { id: 'e2', name: 'Tea', amount: 120, date: '2026-10-18', category: 'Personal Buying', details: '' });
   assert.match(expense.details, /via PhonePe/);
 });
+
+test('opens a UPI app with no payee, amount or QR filled in', () => {
+  assert.equal(context.pocketUpiOpenAppUrl('phonepe', 'ios'), 'phonepe://');
+  assert.equal(context.pocketUpiOpenAppUrl('gpay', 'ios'), 'gpay://');
+  const intent = context.pocketUpiOpenAppUrl('paytm', 'android', 'https://pocketmonthlybudget.netlify.app/app.html#upi-app-missing');
+  assert.match(intent, /^intent:\/\/#Intent;scheme=paytmmp;package=net\.one97\.paytm;S\.browser_fallback_url=https%3A%2F%2F.+;end$/);
+  assert.equal(intent.includes('pa='), false);
+  assert.equal(context.pocketUpiOpenAppUrl('gpay', 'android', 'javascript:alert(1)').includes('browser_fallback_url'), false);
+  assert.throws(() => context.pocketUpiOpenAppUrl('unknown', 'ios'));
+});
+
+test('an expense from an open-app payment needs only what the user enters on return', () => {
+  const expense = context.pocketUpiExpense({ upiId: '', appLabel: 'Google Pay' }, { id: 'e3', name: 'Groceries', amount: '640', date: '2026-10-18', category: 'Personal Buying', details: '' });
+  assert.equal(expense.amount, 640);
+  assert.match(expense.details, /User-confirmed UPI payment · not bank-verified · via Google Pay/);
+  assert.equal(expense.details.includes('Paid to'), false);
+});
