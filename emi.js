@@ -36,6 +36,12 @@ function pocketEmiPlanMetrics(emi, selectedMonth) {
   view.hidden = true;
   view.innerHTML = `<div class="emi-hero"><div><div class="eyebrow">EMI CONTROL CENTRE</div><h3>Know what is due, paid and remaining.</h3><p>Automatic plans appear every month in their date range. Manual plans appear only when you choose to add them for that month.</p><div class="emi-legend"><span><i class="active"></i>Active</span><span><i class="upcoming"></i>Upcoming</span><span><i class="completed"></i>Completed</span></div></div><div class="emi-total"><small>REMAINING THIS MONTH</small><strong id="emi-month-remaining">₹0</strong><span id="emi-month-count">0 payments due</span></div></div><div class="emi-summary"><article><span>Total due</span><strong id="emi-month-total">₹0</strong><small id="emi-due-count">0 scheduled</small></article><article><span>Paid</span><strong id="emi-month-paid">₹0</strong><small id="emi-paid-count">0 marked paid</small></article><article><span>Active plans</span><strong id="emi-active-count">0</strong><small id="emi-plan-count">0 plans in total</small></article><article><span>Total monthly commitment</span><strong id="emi-commitment">₹0</strong><small>All automatic active plans</small></article></div><article class="panel emi-plans"><div class="panel-heading emi-panel-heading"><div><h3>Your EMI plans</h3><span id="emi-schedule-label"></span></div><div class="emi-filters" id="emi-filters"><button class="active" data-filter="all">All</button><button data-filter="due">Due this month</button><button data-filter="upcoming">Upcoming</button><button data-filter="completed">Completed</button></div></div><div id="emi-cards" class="emi-cards"></div><div id="emi-empty" class="emi-empty"><div>▦</div><h3>No EMI plan added yet</h3><p>Add your first EMI once. Monthly Pocket will build the schedule and show what is due each month.</p><button class="primary" id="emi-empty-add">＋ Add your first EMI</button></div></article>`;
   document.querySelector('.stats').before(view);
+  const overview = document.createElement('article');
+  overview.id = 'overview-emi';
+  overview.className = 'panel overview-emi';
+  overview.hidden = true;
+  overview.innerHTML = `<div class="panel-heading"><div><span class="eyebrow">EMI SNAPSHOT</span><h3>Your EMI commitments</h3><span id="overview-emi-subtitle"></span></div><button id="overview-emi-open">View all EMIs →</button></div><div class="overview-emi-body"><div class="overview-emi-total"><span>REMAINING THIS MONTH</span><strong id="overview-emi-total"></strong><small id="overview-emi-count"></small></div><div id="overview-emi-list" class="overview-emi-list"></div></div>`;
+  document.querySelector('section > .transactions').before(overview);
 
   const dialog = document.createElement('dialog');
   dialog.className = 'emi-dialog';
@@ -72,15 +78,26 @@ function pocketEmiPlanMetrics(emi, selectedMonth) {
   render = function () {
     previousRender();
     const active = tab === 'EMI';
+    const overviewActive = tab === 'Overview';
+    overview.hidden = !overviewActive;
+    overview.style.display = overviewActive ? 'block' : 'none';
     view.hidden = !active;
     view.style.display = active ? 'block' : 'none';
+    const month = $('month').value;
+    if (overviewActive) {
+      const overviewDue = store().filter(emi => pocketEmiDueInMonth(emi, month));
+      const unpaid = overviewDue.filter(emi => !(emi.paidMonths || []).includes(month));
+      $('overview-emi-total').textContent = money(unpaid.reduce((sum, emi) => sum + emi.amount, 0));
+      $('overview-emi-count').textContent = unpaid.length + (unpaid.length === 1 ? ' payment still due' : ' payments still due');
+      $('overview-emi-subtitle').textContent = monthLabel(month) + ' · ' + store().length + (store().length === 1 ? ' saved EMI plan' : ' saved EMI plans');
+      $('overview-emi-list').innerHTML = overviewDue.length ? overviewDue.slice(0, 4).map(emi => `<div><span class="overview-emi-icon">▦</span><span><b>${esc(emi.name)}</b><small>Due ${dueDate(emi, month)} · ${emi.mode === 'auto' ? 'Automatic' : 'Manual'}</small></span><strong>${money(emi.amount)}<small>${(emi.paidMonths || []).includes(month) ? '✓ Paid' : 'Due'}</small></strong></div>`).join('') : `<div class="overview-emi-none"><span>✓</span><p><b>No EMI due in ${monthLabel(month)}</b><small>${store().length ? 'Your saved plans are still available in the EMI dashboard.' : 'Add an EMI plan to see its monthly details here.'}</small></p></div>`;
+    }
     if (!active) return;
     document.querySelectorAll('section > .stats, section > .middle, section > .transactions, #leaves-view').forEach(element => element.hidden = true);
     ['currency', 'export', 'balance'].forEach(id => $(id).hidden = true);
     $('add').textContent = '＋ Add EMI';
     $('title').textContent = 'Your EMIs, clearly scheduled.';
     $('subtitle').textContent = 'Choose automatic monthly entries or stay in control with manual months.';
-    const month = $('month').value;
     const plans = store().map(emi => ({ emi, metrics: pocketEmiPlanMetrics(emi, month), due: pocketEmiDueInMonth(emi, month) }));
     const due = plans.filter(plan => plan.due), paid = due.filter(plan => plan.metrics.paid), totalDue = due.reduce((sum, plan) => sum + plan.emi.amount, 0), paidTotal = paid.reduce((sum, plan) => sum + plan.emi.amount, 0);
     const activePlans = plans.filter(plan => plan.metrics.status === 'active');
@@ -105,6 +122,7 @@ function pocketEmiPlanMetrics(emi, selectedMonth) {
     requestAnimationFrame(() => { if (tab === 'EMI') { view.hidden = false; view.style.display = 'block'; } });
   };
   $('add').onclick = () => tab === 'EMI' ? openEmi() : previousAdd();
+  $('overview-emi-open').onclick = () => { tab = 'EMI'; render(); view.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   $('emi-empty-add').onclick = () => openEmi();
   $('emi-close').onclick = $('emi-cancel').onclick = () => dialog.close();
   ['emi-amount', 'emi-start', 'emi-end'].forEach(id => $(id).addEventListener('input', previewPlan));
@@ -146,7 +164,8 @@ function pocketEmiPlanMetrics(emi, selectedMonth) {
       if (persist()) toast('EMI schedule deleted');
     }
   };
-  navButton.addEventListener('click', event => { event.stopPropagation(); tab = 'EMI'; render(); });
+  navButton.addEventListener('click', event => { event.stopPropagation(); tab = 'EMI'; render(); requestAnimationFrame(() => { view.hidden = false; view.style.display = 'block'; }); });
+  new MutationObserver(() => { if (tab === 'EMI' && (view.hidden || view.style.display === 'none')) { view.hidden = false; view.style.display = 'block'; } }).observe(view, { attributes: true, attributeFilter: ['hidden', 'style'] });
   render();
 })();
 

@@ -1,0 +1,8 @@
+/app.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/emi.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/leaves.js
+  Cache-Control: public, max-age=0, must-revalidate
