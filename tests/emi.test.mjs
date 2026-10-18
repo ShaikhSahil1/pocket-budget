@@ -24,9 +24,12 @@ test('manual EMI is due only in months explicitly added by the user', () => {
 
 test('EMI validation accepts good records and rejects invalid date ranges', () => {
   assert.doesNotThrow(() => context.validatePocketEmis([plan()]));
+  assert.doesNotThrow(() => context.validatePocketEmis([plan({ dueDay: 31, reminderEnabled: true })]));
   assert.doesNotThrow(() => context.validatePocketEmis(undefined));
   assert.throws(() => context.validatePocketEmis([plan({ endDate: '2026-01-01' })]));
   assert.throws(() => context.validatePocketEmis([plan({ amount: 0 })]));
+  assert.throws(() => context.validatePocketEmis([plan({ dueDay: 32 })]));
+  assert.throws(() => context.validatePocketEmis([plan({ reminderEnabled: 'yes' })]));
 });
 
 test('plan metrics explain installments, total, status and paid state', () => {
@@ -55,4 +58,19 @@ test('due EMI becomes a Personal Buying expense with a stable monthly ID', () =>
   assert.equal(expense.amount, 12500);
   assert.equal(expense.date, '2026-11-15');
   assert.equal(context.pocketEmiExpenseForMonth(plan(), '2027-04'), null);
+});
+
+test('selected monthly due day is used and clamps to the last day of short months', () => {
+  const emi = plan({ dueDay: 31 });
+  assert.equal(context.pocketEmiDueDateForMonth(emi, '2026-10'), '2026-10-31');
+  assert.equal(context.pocketEmiDueDateForMonth(emi, '2027-02'), '2027-02-28');
+  assert.equal(context.pocketEmiExpenseForMonth(emi, '2026-11').date, '2026-11-30');
+});
+
+test('due-date reminders include only enabled, unpaid EMIs scheduled that day', () => {
+  const enabled = plan({ dueDay: 15, reminderEnabled: true });
+  assert.equal(context.pocketEmisDueOnDate([enabled], '2026-11-15').length, 1);
+  assert.equal(context.pocketEmisDueOnDate([enabled], '2026-11-14').length, 0);
+  assert.equal(context.pocketEmisDueOnDate([plan({ dueDay: 15, reminderEnabled: false })], '2026-11-15').length, 0);
+  assert.equal(context.pocketEmisDueOnDate([plan({ dueDay: 15, reminderEnabled: true, paidMonths: ['2026-11'] })], '2026-11-15').length, 0);
 });
