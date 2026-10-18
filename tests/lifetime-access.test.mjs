@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { createLifetimeOrder, getLifetimeStatus, restoreLifetimePayment, verifyLifetimePayment } from '../netlify/functions/_lifetime-access.mjs';
 
-test('₹499 Razorpay payment is verified and restored only for its Google account', async () => {
+test('₹199 Razorpay payment is verified and restored only for its Google account', async () => {
   const previous = { fetch: globalThis.fetch, id: process.env.RAZORPAY_KEY_ID, secret: process.env.RAZORPAY_KEY_SECRET };
   process.env.RAZORPAY_KEY_ID = 'rzp_test_example'; process.env.RAZORPAY_KEY_SECRET = 'razorpay-secret';
   const cookieSecret = 'cookie-secret-that-is-long-enough-for-testing';
-  let license = '', hasLicenseSheet = false, orderNotes, amountRefunded = 0;
+  let license = '', hasLicenseSheet = false, orderNotes, amountRefunded = 0, orderAmount = 19900;
   globalThis.fetch = async (url, options = {}) => {
     const value = String(url);
     if (value.startsWith('https://www.googleapis.com/drive/v3/files?')) return { ok: true, json: async () => ({ files: [{ id: 'sheet-A' }] }) };
@@ -16,18 +16,18 @@ test('₹499 Razorpay payment is verified and restored only for its Google accou
     if (value.includes('/values/') && options.method === 'PUT') { license = JSON.parse(options.body).values[0][0]; return { ok: true, json: async () => ({}) }; }
     if (value.includes('/values/')) return { ok: true, json: async () => ({ values: license ? [[license]] : [] }) };
     if (value === 'https://api.razorpay.com/v1/orders' && options.method === 'POST') {
-      const body = JSON.parse(options.body); assert.equal(body.amount, 49900); assert.equal(body.currency, 'INR'); orderNotes = body.notes;
+      const body = JSON.parse(options.body); assert.equal(body.amount, 19900); assert.equal(body.currency, 'INR'); orderNotes = body.notes;
       return { ok: true, json: async () => ({ id: 'order_Example123', amount: body.amount, currency: body.currency }) };
     }
-    if (value.endsWith('/orders/order_Example123')) return { ok: true, json: async () => ({ id: 'order_Example123', status: 'paid', amount: 49900, amount_paid: 49900, currency: 'INR', notes: orderNotes }) };
-    if (value.endsWith('/payments/pay_Example123')) return { ok: true, json: async () => ({ id: 'pay_Example123', order_id: 'order_Example123', status: 'captured', captured: true, amount: 49900, amount_refunded: amountRefunded, currency: 'INR', created_at: 1760720000 }) };
+    if (value.endsWith('/orders/order_Example123')) return { ok: true, json: async () => ({ id: 'order_Example123', status: 'paid', amount: orderAmount, amount_paid: orderAmount, currency: 'INR', notes: orderNotes }) };
+    if (value.endsWith('/payments/pay_Example123')) return { ok: true, json: async () => ({ id: 'pay_Example123', order_id: 'order_Example123', status: 'captured', captured: true, amount: orderAmount, amount_refunded: amountRefunded, currency: 'INR', created_at: 1760720000 }) };
     throw new Error('Unexpected request: ' + value);
   };
   try {
     const account = { id: 'google-account-A', email: 'a@example.com' };
     assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, false);
     const order = await createLifetimeOrder({ accessToken: 'token', account, cookieSecret });
-    assert.equal(order.amount, 49900); assert.equal(order.keyId, 'rzp_test_example');
+    assert.equal(order.amount, 19900); assert.equal(order.keyId, 'rzp_test_example');
     await assert.rejects(() => verifyLifetimePayment({ accessToken: 'token', account, cookieSecret, payment: { orderId: order.orderId, paymentId: 'pay_Example123', signature: '0'.repeat(64) } }), /signature/);
     const signature = createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update('order_Example123|pay_Example123').digest('hex');
     assert.equal((await verifyLifetimePayment({ accessToken: 'token', account, cookieSecret, payment: { orderId: order.orderId, paymentId: 'pay_Example123', signature } })).entitled, true);
@@ -38,13 +38,21 @@ test('₹499 Razorpay payment is verified and restored only for its Google accou
     assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, false);
     license = validLicense;
     assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: 'google-account-B', cookieSecret })).entitled, false);
-    amountRefunded = 49900;
+    amountRefunded = orderAmount;
     assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, false);
     amountRefunded = 0;
     assert.equal((await getLifetimeStatus({ accessToken: 'token', accountId: account.id, cookieSecret })).entitled, true);
     license = '';
     assert.equal((await restoreLifetimePayment({ accessToken: 'token', account, cookieSecret, paymentId: 'pay_Example123' })).entitled, true);
     await assert.rejects(() => restoreLifetimePayment({ accessToken: 'token', account: { id: 'google-account-B', email: 'b@example.com' }, cookieSecret, paymentId: 'pay_Example123' }), /No eligible/);
+    assert.equal(JSON.parse(Buffer.from(license.split('.')[0], 'base64url')).amount, 19900);
+    // Only ₹199 qualifies; any other amount (including the old ₹499) is refused.
+    for (const other of [49900, 9950, 100]) {
+      orderAmount = other; license = '';
+      await assert.rejects(() => restoreLifetimePayment({ accessToken: 'token', account, cookieSecret, paymentId: 'pay_Example123' }), /No eligible/);
+    }
+    orderAmount = 100; license = '';
+    await assert.rejects(() => restoreLifetimePayment({ accessToken: 'token', account, cookieSecret, paymentId: 'pay_Example123' }), /No eligible/);
   } finally {
     globalThis.fetch = previous.fetch;
     for (const [name, value] of [['RAZORPAY_KEY_ID', previous.id], ['RAZORPAY_KEY_SECRET', previous.secret]]) {

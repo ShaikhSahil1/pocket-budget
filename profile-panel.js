@@ -59,8 +59,8 @@
   document.addEventListener('monthly-pocket:payment-required', () => {
     paymentRequired = true;
     entryTitle.textContent = 'Complete your lifetime access';
-    entryCopy.textContent = 'Pay ₹499 once with Razorpay. No subscription.';
-    entryButton.textContent = 'Pay ₹499 securely';
+    entryCopy.textContent = 'Launch offer: 50% off — ₹199 once instead of ₹399. No subscription.';
+    entryButton.textContent = 'Pay ₹199 securely';
     entryButton.hidden = false; restoreButton.hidden = false; opening.hidden = true;
   });
   // If the session check ends without opening the workspace (offline, server error),

@@ -1,7 +1,7 @@
 (() => {
   const panel = document.createElement('article');
   panel.className = 'panel cloud-panel';
-  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-progress" id="cloud-progress" role="progressbar" aria-label="Google Sheet activity" aria-valuetext="Idle" hidden><span></span></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><h3>Unlock Monthly Pocket for life.</h3><p>Pay ₹499 once. No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
+  panel.innerHTML = `<div class="panel-heading"><div><h3>Your private Google workspace</h3><span id="account-email">Not signed in</span><br><span id="cloud-status" role="status">Checking your Google session…</span></div><button id="cloud-connect">Sign in with Google</button></div><div class="cloud-progress" id="cloud-progress" role="progressbar" aria-label="Google Sheet activity" aria-valuetext="Idle" hidden><span></span></div><div class="lifetime-access" id="lifetime-access" hidden><span>ONE-TIME PURCHASE</span><b class="discount-badge">Launch offer · 50% off</b><h3>Unlock Monthly Pocket for life.</h3><p class="lifetime-price"><s>₹399</s> <strong>₹199</strong> once</p><p>No subscription, no renewal, and no recurring charge.</p><div><button class="primary" id="buy-lifetime">Pay securely with Razorpay</button><button id="paywall-logout">Use another Google account</button></div><details><summary>Already paid? Restore access</summary><label>Razorpay payment ID<input id="restore-payment-id" autocomplete="off" placeholder="pay_…"></label><button id="restore-lifetime">Verify payment ID</button></details><small>Access is linked to this Google account after Razorpay verifies the payment.</small></div><div class="cloud-actions" id="account-actions" hidden><a id="account-sheet" target="_blank" rel="noopener">Open my Google Sheet</a><button id="cloud-load">Load from Google</button><button id="cloud-save">Save to Google</button><button id="json-export">Download full backup</button><label class="import-label">Restore backup<input type="file" id="json-import" accept=".json,application/json"></label><button id="legacy-import" hidden>Import previous device data</button><button id="cloud-disconnect">Log out</button></div><p>Sign in to see your own budget and leaves. Each account has separate storage and its own Monthly Pocket spreadsheet. Local copies remain on this browser; log out when finished on a shared device.</p>`;
   document.querySelector('section > .stats').before(panel);
   let account = null, token = '', expires = 0, sheet = '', baseline, busy = false, paying = false, timer, revision = 0, generation = 0;
   let sheetReady = false, workspaceReady = false, verifiedOperation = 0, operation = 0;
@@ -70,7 +70,7 @@
       let verificationStarted = false;
       const checkout = new Razorpay({
         key: order.keyId, order_id: order.orderId, amount: order.amount, currency: order.currency,
-        name: 'Monthly Pocket', description: 'Lifetime access · one-time payment', prefill: { email: order.email },
+        name: 'Monthly Pocket', description: 'Lifetime access · launch offer 50% off', prefill: { email: order.email },
         readonly: { email: true }, theme: { color: '#234f42' }, retry: { enabled: true },
         handler: async result => {
           verificationStarted = true;
@@ -241,7 +241,7 @@
     localStorage.setItem(sessionKey, account.id);
     if (result.entitled === false) {
       document.querySelector('.saved').textContent = '● Lifetime access required';
-      status('Secure payment required · ₹499 once for lifetime access.');
+      status('Secure payment required · ₹199 once for lifetime access.');
       controls();
       signal('monthly-pocket:payment-required');
       return;

@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-const lifetimeAmount = 49900;
+// Lifetime price in paise (₹199). This is the only amount accepted.
+const lifetimeAmount = 19900;
+const acceptedAmounts = [lifetimeAmount];
 const lifetimeCurrency = 'INR';
 const licenseSheet = 'PocketLicense';
 
@@ -54,7 +56,7 @@ function readLicense(token, accountId, secret) {
     const supplied = Buffer.from(signature, 'base64url');
     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return null;
     const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    if (payload.v !== 1 || payload.account !== accountId || payload.amount !== lifetimeAmount || payload.currency !== lifetimeCurrency) return null;
+    if (payload.v !== 1 || payload.account !== accountId || !acceptedAmounts.includes(payload.amount) || payload.currency !== lifetimeCurrency) return null;
     if (!/^pay_[A-Za-z0-9]+$/.test(String(payload.paymentId || '')) || !/^order_[A-Za-z0-9]+$/.test(String(payload.orderId || ''))) return null;
     return payload;
   } catch { return null; }
@@ -65,9 +67,11 @@ async function paymentIsEligible({ settings, accountId, cookieSecret, paymentId,
     razorpay(`/orders/${encodeURIComponent(orderId)}`, settings),
     razorpay(`/payments/${encodeURIComponent(paymentId)}`, settings),
   ]);
-  const validOrder = order.id === orderId && order.status === 'paid' && order.amount === lifetimeAmount && order.amount_paid === lifetimeAmount && order.currency === lifetimeCurrency && order.notes?.product === 'monthly-pocket-lifetime' && order.notes?.account_hash === accountHash(accountId, cookieSecret);
-  const validPayment = paid.id === paymentId && paid.order_id === orderId && paid.status === 'captured' && paid.captured === true && paid.amount === lifetimeAmount && paid.currency === lifetimeCurrency && Number(paid.amount_refunded || 0) === 0;
-  return validOrder && validPayment;
+  const amount = order.amount;
+  const validOrder = order.id === orderId && order.status === 'paid' && acceptedAmounts.includes(amount) && order.amount_paid === amount && order.currency === lifetimeCurrency && order.notes?.product === 'monthly-pocket-lifetime' && order.notes?.account_hash === accountHash(accountId, cookieSecret);
+  const validPayment = paid.id === paymentId && paid.order_id === orderId && paid.status === 'captured' && paid.captured === true && paid.amount === amount && paid.currency === lifetimeCurrency && Number(paid.amount_refunded || 0) === 0;
+  // Returns the verified amount in paise, or 0 when the payment does not qualify.
+  return validOrder && validPayment ? amount : 0;
 }
 
 async function privateSheet(accessToken, accountId, create = false) {
@@ -110,7 +114,8 @@ export async function getLifetimeStatus({ accessToken, accountId, cookieSecret }
   const settings = paymentSettings();
   if (!settings) return { enabled: false, entitled: true, amount: lifetimeAmount, currency: lifetimeCurrency };
   const license = readLicense(await storedLicense(accessToken, accountId), accountId, cookieSecret);
-  const entitled = !!license && await paymentIsEligible({ settings, accountId, cookieSecret, paymentId: license.paymentId, orderId: license.orderId });
+  const verified = license ? await paymentIsEligible({ settings, accountId, cookieSecret, paymentId: license.paymentId, orderId: license.orderId }) : 0;
+  const entitled = verified > 0 && verified === license.amount;
   return { enabled: true, entitled, amount: lifetimeAmount, currency: lifetimeCurrency };
 }
 
@@ -142,8 +147,9 @@ export async function verifyLifetimePayment({ accessToken, account, cookieSecret
   const expected = createHmac('sha256', settings.keySecret).update(`${orderId}|${paymentId}`).digest();
   const supplied = Buffer.from(signature, 'hex');
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new Error('Payment signature verification failed.');
-  if (!await paymentIsEligible({ settings, accountId: account.id, cookieSecret, paymentId, orderId })) throw new Error('Payment is not captured for the correct product and amount.');
-  const payload = { v: 1, account: account.id, paymentId, orderId, amount: lifetimeAmount, currency: lifetimeCurrency, paidAt: new Date().toISOString() };
+  const amount = await paymentIsEligible({ settings, accountId: account.id, cookieSecret, paymentId, orderId });
+  if (!amount) throw new Error('Payment is not captured for the correct product and amount.');
+  const payload = { v: 1, account: account.id, paymentId, orderId, amount, currency: lifetimeCurrency, paidAt: new Date().toISOString() };
   await saveLicense(accessToken, account.id, signLicense(payload, cookieSecret));
   return { enabled: true, entitled: true, amount: lifetimeAmount, currency: lifetimeCurrency };
 }
@@ -155,8 +161,9 @@ export async function restoreLifetimePayment({ accessToken, account, cookieSecre
   if (!/^pay_[A-Za-z0-9]+$/.test(paymentId)) throw new Error('Enter a valid Razorpay payment ID.');
   const paid = await razorpay(`/payments/${encodeURIComponent(paymentId)}`, settings);
   if (!/^order_[A-Za-z0-9]+$/.test(String(paid.order_id || ''))) throw new Error('This payment is not linked to a Monthly Pocket order.');
-  if (!await paymentIsEligible({ settings, accountId: account.id, cookieSecret, paymentId, orderId: paid.order_id })) throw new Error('No eligible ₹499 payment was found for this Google account.');
-  const payload = { v: 1, account: account.id, paymentId, orderId: paid.order_id, amount: lifetimeAmount, currency: lifetimeCurrency, paidAt: new Date((paid.created_at || Date.now() / 1000) * 1000).toISOString() };
+  const amount = await paymentIsEligible({ settings, accountId: account.id, cookieSecret, paymentId, orderId: paid.order_id });
+  if (!amount) throw new Error('No eligible Monthly Pocket lifetime payment was found for this Google account.');
+  const payload = { v: 1, account: account.id, paymentId, orderId: paid.order_id, amount, currency: lifetimeCurrency, paidAt: new Date((paid.created_at || Date.now() / 1000) * 1000).toISOString() };
   await saveLicense(accessToken, account.id, signLicense(payload, cookieSecret));
   return { enabled: true, entitled: true, amount: lifetimeAmount, currency: lifetimeCurrency };
 }

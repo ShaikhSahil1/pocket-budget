@@ -1,19 +1,19 @@
 export const CHAT_MODEL = 'gemini-3.5-flash-lite';
 
 export const PRODUCT_KNOWLEDGE = `
-Monthly Pocket is a browser-based monthly budget app. It costs ₹499 once for lifetime access; there is no subscription. Payments are processed and rechecked through Razorpay.
+Monthly Pocket is a browser-based monthly budget app. It costs ₹199 once for lifetime access (launch offer: 50% off the regular ₹399); there is no subscription. Payments are processed and rechecked through Razorpay.
 Users sign in with Google. Their budget is kept in their browser and in a private Google Sheet named “Pocket Budget — My private data” that they own. Monthly Pocket does not keep a central database of budget records.
 Quick start: sign in, set the month's new funds, add expenses, mark refunds pending until received, and review the available balance and daily allowance. Positive unused money carries forward automatically; negative balances do not.
 Features include monthly expenses, categories, reimbursements, leave tracking, currency conversion, travel planning, CSV export, and full JSON backup/restore.
 Privacy: Monthly Pocket does not sell financial data. Google handles sign-in and the private Sheet. Razorpay handles payment credentials. The assistant receives only the messages typed into chat; users should not enter financial records, passwords, payment credentials, API keys, or other sensitive information.
 Recovery: restore a deleted Sheet from Google Drive Trash within 30 days. If permanently deleted, paid access can be restored with the original Razorpay pay_ ID, creating a new Sheet. Old budget data can return only from the original browser's local copy or a downloaded JSON backup.
-Payment: UPI may be offered by Razorpay Checkout when available. Access is linked to the Google account used for payment. A captured, non-refunded ₹499 payment is required.
+Payment: UPI may be offered by Razorpay Checkout when available. Access is linked to the Google account used for payment. A captured, non-refunded ₹199 payment is required.
 Google warning: the OAuth warning disappears only after the Google consent screen is configured for production and Google completes any required verification.
 Helpful pages: /how-to-use for the complete guide, /privacy-policy for privacy, /data-policy for storage details, and /terms-of-service for terms.
 `;
 
 const fallbackItems = [
-  { terms: ['price', 'cost', 'pay', 'payment', 'upi', 'lifetime', 'subscription'], answer: 'Monthly Pocket costs ₹499 once for lifetime access—there is no subscription. Razorpay Checkout may show UPI when it is available. Access is linked to the Google account used during payment.' },
+  { terms: ['price', 'cost', 'pay', 'payment', 'upi', 'lifetime', 'subscription'], answer: 'Monthly Pocket costs ₹199 once for lifetime access—a 50% launch discount on ₹399, with no subscription. Razorpay Checkout may show UPI when it is available. Access is linked to the Google account used during payment.' },
   { terms: ['start', 'begin', 'use', 'expense', 'balance'], answer: 'Start in 3 moves: sign in with Google, set this month’s new funds, then add expenses as they happen. Monthly Pocket shows what remains and automatically carries forward a positive balance.' },
   { terms: ['privacy', 'data', 'store', 'safe', 'sheet'], answer: 'Your working budget stays in this browser and in a private Google Sheet you own. Monthly Pocket has no central budget-record database and does not sell your financial data.' },
   { terms: ['delete', 'deleted', 'recover', 'restore', 'backup'], answer: 'First restore “Pocket Budget — My private data” from Google Drive Trash. If it is gone forever, restore paid access with the original Razorpay payment ID, then recover records from the original browser or a JSON backup.' },

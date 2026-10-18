@@ -11,7 +11,7 @@ test('chat input is cleaned and bounded before it reaches Gemini', () => {
 });
 
 test('built-in guide answers common product questions without an API key', () => {
-  assert.match(fallbackAnswer('Can I pay using UPI?'), /₹499 once/);
+  assert.match(fallbackAnswer('Can I pay using UPI?'), /₹199 once/);
   assert.match(fallbackAnswer('I deleted my sheet'), /Drive Trash/);
   assert.match(fallbackAnswer('Where is my data stored?'), /private Google Sheet/);
 });

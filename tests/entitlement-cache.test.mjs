@@ -6,7 +6,7 @@ import handler from '../netlify/functions/google-auth.mjs';
 const cookieSecret = 'c'.repeat(40);
 const accountHash = id => createHmac('sha256', cookieSecret).update(`monthly-pocket:${id}`).digest('hex').slice(0, 32);
 function license(account) {
-  const encoded = Buffer.from(JSON.stringify({ v: 1, account, paymentId: 'pay_Cache1', orderId: 'order_Cache1', amount: 49900, currency: 'INR', paidAt: '2026-10-18T00:00:00.000Z' })).toString('base64url');
+  const encoded = Buffer.from(JSON.stringify({ v: 1, account, paymentId: 'pay_Cache1', orderId: 'order_Cache1', amount: 19900, currency: 'INR', paidAt: '2026-10-18T00:00:00.000Z' })).toString('base64url');
   return `${encoded}.${createHmac('sha256', cookieSecret).update(encoded).digest('base64url')}`;
 }
 
@@ -24,8 +24,8 @@ test('a verified purchase is cached in a sealed cookie so refreshes skip Drive a
     if (value.startsWith('https://www.googleapis.com/drive/')) { calls.drive++; return { ok: true, json: async () => ({ files: [{ id: 'sheet-1' }] }) }; }
     if (value.includes('?fields=sheets')) return { ok: true, json: async () => ({ sheets: [{ properties: { title: 'PocketLicense' } }] }) };
     if (value.includes('/values/')) return { ok: true, json: async () => ({ values: [[license(account)]] }) };
-    if (value.endsWith('/orders/order_Cache1')) { calls.razorpay++; return { ok: true, json: async () => ({ id: 'order_Cache1', status: 'paid', amount: 49900, amount_paid: 49900, currency: 'INR', notes: { product: 'monthly-pocket-lifetime', account_hash: accountHash(account) } }) }; }
-    if (value.endsWith('/payments/pay_Cache1')) { calls.razorpay++; return { ok: true, json: async () => ({ id: 'pay_Cache1', order_id: 'order_Cache1', status: 'captured', captured: true, amount: 49900, amount_refunded: refunded, currency: 'INR' }) }; }
+    if (value.endsWith('/orders/order_Cache1')) { calls.razorpay++; return { ok: true, json: async () => ({ id: 'order_Cache1', status: 'paid', amount: 19900, amount_paid: 19900, currency: 'INR', notes: { product: 'monthly-pocket-lifetime', account_hash: accountHash(account) } }) }; }
+    if (value.endsWith('/payments/pay_Cache1')) { calls.razorpay++; return { ok: true, json: async () => ({ id: 'pay_Cache1', order_id: 'order_Cache1', status: 'captured', captured: true, amount: 19900, amount_refunded: refunded, currency: 'INR' }) }; }
     throw new Error('Unexpected request ' + value);
   };
   try {
@@ -49,7 +49,7 @@ test('a verified purchase is cached in a sealed cookie so refreshes skip Drive a
     assert.deepEqual(calls, { drive: 0, razorpay: 0 });
 
     // The cookie is bound to the Google account: another account re-verifies.
-    account = 'account-B'; refunded = 49900;
+    account = 'account-B'; refunded = 19900;
     const other = await post([session, entitlement]);
     assert.equal((await other.json()).entitled, false);
     assert.ok(calls.razorpay > 0);

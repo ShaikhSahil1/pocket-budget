@@ -24,9 +24,9 @@ Enable **Google Drive API** and **Google Sheets API** in the OAuth client's Goog
 
 The production site uses a Netlify Function and an encrypted, HTTP-only cookie so a Google Sheets connection can be restored after the tab or browser is closed.
 
-## ₹499 lifetime access
+## ₹199 lifetime access
 
-When Razorpay is configured, a signed-in account must complete one server-created ₹499 INR order before the workspace unlocks. The server verifies the Razorpay checkout signature, fetches the order and payment directly from Razorpay, and checks that the order is paid, the payment is captured, the amount and currency match, no refund has been recorded, and the order belongs to the current Google account. A signed entitlement is then written to the hidden `PocketLicense` tab in that account's private Google Sheet. Users can restore access with their Razorpay payment ID; the server accepts it only when Razorpay confirms the same account-bound order.
+When Razorpay is configured, a signed-in account must complete one server-created ₹199 INR order before the workspace unlocks. ₹199 (19900 paise) is the only accepted amount; change `lifetimeAmount` in `_lifetime-access.mjs` to change the price. The “50% off” launch label (₹399 shown struck through) is display text only and does not change what Razorpay charges. The server verifies the Razorpay checkout signature, fetches the order and payment directly from Razorpay, and checks that the order is paid, the payment is captured, the amount and currency match, no refund has been recorded, and the order belongs to the current Google account. A signed entitlement is then written to the hidden `PocketLicense` tab in that account's private Google Sheet. Users can restore access with their Razorpay payment ID; the server accepts it only when Razorpay confirms the same account-bound order.
 
 To keep saving fast, the server remembers a verified purchase for 6 hours in a separate encrypted, HTTP-only `__Host-pocket_entitlement` cookie that is bound to the Google account and the Razorpay Key ID. While it is valid, session refreshes skip the Drive, Sheets and Razorpay licence checks; after it expires the full Razorpay check runs again, so a refund locks access within about 6 hours. Logging out clears it, and changing `RAZORPAY_KEY_ID` (for example from test to live keys) invalidates every cached entitlement. The browser checks the signed-in account once per Google sync operation (a save, a load or a restore), not before every Sheets request.
 
@@ -76,7 +76,7 @@ Open **EMI** to see what is due, paid and remaining for the selected month, filt
 
 After Google sign-in the server also sets `__Host-pocket_signed_in=1`, a readable cookie that contains no token or account data. When it is present, opening the homepage goes straight to the dashboard (`index.html?home`, used by the dashboard logo, keeps the homepage open), and the dashboard shows “Opening your dashboard…” instead of a sign-in prompt while the session is checked. Access is still decided by the encrypted HttpOnly session cookie; the hint is cleared on logout or when the session is no longer valid, and older sessions receive it on their next refresh.
 
-The user profile never opens by itself. Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. If lifetime access is required, the main page shows **Pay ₹499 securely** and an **Already paid? Restore access** link, which opens the profile at the restore form.
+The user profile never opens by itself. Click the user profile in the sidebar (below navigation on mobile) to open Google account, sync, backup/restore and logout controls. Close the panel with its close button, Escape, or the backdrop. If lifetime access is required, the main page shows **Pay ₹199 securely** and an **Already paid? Restore access** link, which opens the profile at the restore form.
 
 ## Currency preferences
 
